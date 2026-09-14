@@ -971,7 +971,7 @@ function createStoreApp({ dataDir }) {
 async function startServer({ port = 0, dataDir } = {}) {
   const app = createStoreApp({ dataDir: dataDir || path.join(process.env.LOCALAPPDATA || os.homedir(), 'Fantasy3D', 'store-data') });
   const server = await new Promise((resolve, reject) => {
-    const listener = app.listen(port, '127.0.0.1', () => resolve(listener));
+    const listener = app.listen(port, '0.0.0.0', () => resolve(listener));
     listener.once('error', reject);
   });
   const url = `http://127.0.0.1:${server.address().port}`;
