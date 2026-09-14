@@ -282,4 +282,29 @@
   loadConsciousness();
   loadIterations();
   setInterval(() => { loadConsciousness(); }, 15000);
+
+  // ===== 实时时钟 + 自动事件倒计时 =====
+  const ITERATE_INTERVAL = 5 * 60;
+  const MEETING_INTERVAL = 30 * 60;
+  const SCAN_INTERVAL = 10 * 60;
+  const WEBSEARCH_INTERVAL = 15 * 60;
+  let startTime = Date.now();
+
+  function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    document.getElementById('clockDisplay').textContent = `${h}:${m}:${s}`;
+
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const nextIterate = ITERATE_INTERVAL - (elapsed % ITERATE_INTERVAL);
+    const nextMeeting = MEETING_INTERVAL - (elapsed % MEETING_INTERVAL);
+    const min = Math.floor(nextIterate / 60);
+    const sec = nextIterate % 60;
+    document.getElementById('countdownDisplay').textContent =
+      `下次迭代: ${min}:${String(sec).padStart(2, '0')} | 下次会议: ${Math.floor(nextMeeting / 60)}分钟`;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
 })();

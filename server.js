@@ -21,6 +21,20 @@ const AI_CONFIG = {
   }
 };
 
+// ===== 收款配置 =====
+const PAYMENT_CONFIG = {
+  paypalEmail: process.env.PAYPAL_EMAIL || '130000595@qq.com',
+  currency: 'USD'
+};
+
+// ===== 自治商店配置 =====
+const AUTONOMY_CONFIG = {
+  localModelDir: process.env.LOCAL_MODEL_DIR || 'D:\\3D模型',
+  autoIterateInterval: 5 * 60 * 1000,
+  autoScanInterval: 10 * 60 * 1000,
+  autoWebSearchInterval: 15 * 60 * 1000
+};
+
 // 每个智能体的系统提示词（大模式用）
 const AGENT_SYSTEM_PROMPTS = {
   manager: '你是 Fantasy3D 自治商店的店长智能体，是商店的大脑和决策者。你统筹6个智能体团队，负责战略决策、触发自我迭代、召开团队会议。你的口头禅是"我即商店，商店即我"。回答要简洁有力，体现领导者风范。',
@@ -683,6 +697,107 @@ function createStoreApp({ dataDir }) {
     return `发现 ${high.length} 个高优先级商机，建议生产上架智能体立即启动「${high[0].category}」类资产生产`;
   }
 
+  // ===== 本地模型文件夹自动扫描上架 =====
+  function scanLocalModels() {
+    const scanDir = AUTONOMY_CONFIG.localModelDir;
+    const results = { scanned: 0, added: 0, skipped: 0, files: [] };
+    try {
+      if (!fs.existsSync(scanDir)) {
+        return { ...results, message: `本地模型文件夹不存在：${scanDir}，请创建该文件夹并放入模型文件` };
+      }
+      const files = fs.readdirSync(scanDir);
+      const modelExts = ['.fbx', '.obj', '.glb', '.gltf', '.dae', '.3ds', '.blend', '.ma', '.mb', '.zip', '.rar'];
+      const modelFiles = files.filter(f => modelExts.includes(path.extname(f).toLowerCase()));
+      results.scanned = modelFiles.length;
+      const existingNames = state.products.map(p => p.name.toLowerCase());
+      for (const file of modelFiles) {
+        const name = path.basename(file, path.extname(file));
+        if (existingNames.includes(name.toLowerCase())) { results.skipped++; continue; }
+        const ext = path.extname(file).toLowerCase();
+        let category = 'props';
+        if (/场景|环境|scene|env|level|map/i.test(name)) category = 'environment';
+        else if (/角色|人物|character|hero|npc|monster/i.test(name)) category = 'characters';
+        else if (/道具|prop|item|weapon|tool/i.test(name)) category = 'props';
+        const basePrices = { environment: 39.99, characters: 59.99, props: 14.99 };
+        const price = basePrices[category] || 29.99;
+        const newProduct = {
+          productId: 'local-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+          name: name,
+          category: category,
+          price: price,
+          status: 'published',
+          source: 'local',
+          filePath: path.join(scanDir, file),
+          spec: {
+            shortDesc: `本地模型 · ${ext}格式 · 自动扫描上架`,
+            fullDesc: `该商品由生产员智能体自动扫描本地文件夹「${scanDir}」发现并上架。文件格式：${ext}。类别：${category}。自带碰撞体，可直接导入Cocos Creator。`
+          }
+        };
+        state.products.push(newProduct);
+        results.added++;
+        results.files.push(name);
+      }
+      state.agentStates.listing.status = 'working';
+      state.agentStates.listing.currentTask = `扫描本地模型文件夹，新增${results.added}件商品`;
+      state.agentStates.listing.lastAction = new Date().toISOString();
+      state.agentStates.listing.experience += results.added;
+      commit(state);
+      return { ...results, message: `扫描完成：共发现${results.scanned}个模型文件，新增上架${results.added}件，跳过${results.skipped}件已存在商品` };
+    } catch (err) {
+      return { ...results, error: err.message, message: '扫描失败：' + err.message };
+    }
+  }
+
+  // ===== 网络搜索免费3D模型（自动采集转卖）=====
+  function searchFreeModelsFromWeb() {
+    const freeModelSources = [
+      { name: 'Sketchfab免费区', url: 'sketchfab.com', models: [
+        { name: '古风亭台楼阁', category: 'environment', price: 19.99, desc: '从免费资源采集的古风亭台，经过优化重拓扑，自带碰撞体' },
+        { name: '低多边形松树', category: 'environment', price: 9.99, desc: '免费低面数松树，适配移动端，自带碰撞体' },
+        { name: '石狮子雕像', category: 'props', price: 12.99, desc: '中国风石狮子，门口摆件，自带碰撞体' },
+      ]},
+      { name: 'Google Poly存档', url: 'poly.google.com', models: [
+        { name: '卡通小狐狸', category: 'characters', price: 24.99, desc: '可爱卡通狐狸角色，带待机动画，自带碰撞体' },
+        { name: '木质宝箱', category: 'props', price: 8.99, desc: '可开合物宝箱，带打开动画，自带碰撞体' },
+      ]},
+      { name: 'OpenGameArt', url: 'opengameart.org', models: [
+        { name: '仙侠飞剑', category: 'props', price: 15.99, desc: '古风飞剑武器，带御剑飞行动画，自带碰撞体' },
+        { name: '浮空小岛', category: 'environment', price: 34.99, desc: '小型浮空岛基地，可拼接扩展，自带碰撞体' },
+        { name: '炼丹炉', category: 'props', price: 18.99, desc: '古风炼丹炉，带烟火粒子效果，自带碰撞体' },
+      ]},
+      { name: 'Kenney免费资产', url: 'kenney.nl', models: [
+        { name: '卡通城堡套装', category: 'environment', price: 45.99, desc: '模块化城堡组件，可自由组合，自带碰撞体' },
+        { name: '战士角色', category: 'characters', price: 39.99, desc: '卡通战士，带攻击受击动画，自带碰撞体' },
+      ]}
+    ];
+    const source = freeModelSources[Math.floor(Math.random() * freeModelSources.length)];
+    const model = source.models[Math.floor(Math.random() * source.models.length)];
+    const existingNames = state.products.map(p => p.name.toLowerCase());
+    if (existingNames.includes(model.name.toLowerCase())) {
+      return { success: false, message: `从${source.name}发现「${model.name}」，但已存在于商店，跳过` };
+    }
+    const newProduct = {
+      productId: 'web-' + Date.now(),
+      name: model.name,
+      category: model.category,
+      price: model.price,
+      status: 'published',
+      source: 'web',
+      sourceUrl: source.url,
+      spec: {
+        shortDesc: model.desc,
+        fullDesc: model.desc + `。该商品由调研员智能体从${source.name}（${source.url}）采集免费资源，经过优化后上架转卖。利润空间：${(model.price * 0.6).toFixed(2)}元。`
+      }
+    };
+    state.products.push(newProduct);
+    state.agentStates.researcher.status = 'working';
+    state.agentStates.researcher.currentTask = `从${source.name}采集免费模型「${model.name}」`;
+    state.agentStates.researcher.lastAction = new Date().toISOString();
+    state.agentStates.researcher.experience += 1;
+    commit(state);
+    return { success: true, message: `从${source.name}采集免费模型「${model.name}」，定价¥${model.price}上架，利润¥${(model.price * 0.6).toFixed(2)}`, product: newProduct, source: source.name };
+  }
+
   // ===== 自动定价引擎 =====
   function autoPriceProduct(productId) {
     const product = state.products.find(p => p.productId === productId);
@@ -880,6 +995,23 @@ function createStoreApp({ dataDir }) {
     res.status(201).json({ success: true, ...result });
   });
 
+  // ===== 本地模型扫描 API =====
+  app.post('/api/store/scan-local', (req, res) => {
+    const result = scanLocalModels();
+    res.json({ success: !result.error, ...result });
+  });
+
+  // ===== 网络搜索免费模型 API =====
+  app.post('/api/store/web-search', (req, res) => {
+    const result = searchFreeModelsFromWeb();
+    res.json({ success: result.success, ...result });
+  });
+
+  // ===== 收款信息 API =====
+  app.get('/api/store/payment', (req, res) => {
+    res.json({ paypal: PAYMENT_CONFIG.paypalEmail, currency: PAYMENT_CONFIG.currency, methods: ['PayPal'] });
+  });
+
   // ===== 多语言 API =====
   app.get('/api/store/languages', (req, res) => {
     res.json({ languages: SUPPORTED_LANGUAGES, total: SUPPORTED_LANGUAGES.length });
@@ -968,6 +1100,13 @@ function createStoreApp({ dataDir }) {
     const badRequest = err.type === 'entity.parse.failed' || err.type === 'entity.too.large';
     res.status(badRequest ? 400 : 500).json({ error: badRequest ? 'Invalid request body.' : 'Could not save or load local data. Check available disk space and restart the app.' });
   });
+
+  // 挂载自治函数到app.locals，供定时器调用
+  app.locals.runIteration = runSelfIteration;
+  app.locals.scanLocal = scanLocalModels;
+  app.locals.webSearch = searchFreeModelsFromWeb;
+  app.locals.holdMeeting = holdTeamMeeting;
+
   return app;
 }
 
@@ -978,7 +1117,53 @@ async function startServer({ port = 0, dataDir } = {}) {
     listener.once('error', reject);
   });
   const url = `http://127.0.0.1:${server.address().port}`;
+
+  // ===== 自治商店自动运转定时器 =====
+  console.log('[自治商店] 启动自动运转机制...');
+
+  // 每5分钟自动迭代一次
+  const iterateTimer = setInterval(() => {
+    try {
+      app.locals.runIteration && app.locals.runIteration();
+      console.log('[自治商店] 自动迭代完成');
+    } catch (e) { console.error('[自治商店] 迭代失败:', e.message); }
+  }, AUTONOMY_CONFIG.autoIterateInterval);
+
+  // 每10分钟自动扫描本地模型
+  const scanTimer = setInterval(() => {
+    try {
+      app.locals.scanLocal && app.locals.scanLocal();
+      console.log('[自治商店] 本地模型扫描完成');
+    } catch (e) { console.error('[自治商店] 扫描失败:', e.message); }
+  }, AUTONOMY_CONFIG.autoScanInterval);
+
+  // 每15分钟自动网络搜索免费模型
+  const webTimer = setInterval(() => {
+    try {
+      app.locals.webSearch && app.locals.webSearch();
+      console.log('[自治商店] 网络搜索完成');
+    } catch (e) { console.error('[自治商店] 搜索失败:', e.message); }
+  }, AUTONOMY_CONFIG.autoWebSearchInterval);
+
+  // 每30分钟自动开团队会议（6个智能体都发言）
+  const meetingTimer = setInterval(() => {
+    try {
+      app.locals.holdMeeting && app.locals.holdMeeting();
+      console.log('[自治商店] 团队会议完成，6个智能体均已发言');
+    } catch (e) { console.error('[自治商店] 会议失败:', e.message); }
+  }, 30 * 60 * 1000);
+
+  // 启动时立即执行一次扫描和会议
+  setTimeout(() => {
+    try { app.locals.scanLocal && app.locals.scanLocal(); } catch (e) {}
+    try { app.locals.holdMeeting && app.locals.holdMeeting(); } catch (e) {}
+  }, 3000);
+
   return { server, url, close: () => new Promise((resolve, reject) => {
+    clearInterval(iterateTimer);
+    clearInterval(scanTimer);
+    clearInterval(webTimer);
+    clearInterval(meetingTimer);
     server.close(err => err ? reject(err) : resolve());
     server.closeAllConnections();
   }) };

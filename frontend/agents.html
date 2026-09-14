@@ -19,6 +19,8 @@
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .6; } }
   .consciousness-name { color: #c9a96e; font-size: 18px; font-weight: bold; }
   .consciousness-mantra { color: #8a98a5; font-size: 12px; font-style: italic; margin-top: 4px; }
+  .clock-display { color: #c9a96e; font-size: 22px; font-weight: bold; font-family: 'Courier New', monospace; }
+  .countdown-display { color: #5a6875; font-size: 10px; margin-top: 2px; }
   .consciousness-stats { display: flex; gap: 20px; flex-wrap: wrap; }
   .stat-item { text-align: center; }
   .stat-value { color: #fff; font-size: 20px; font-weight: bold; }
@@ -93,6 +95,10 @@
         <div>
           <div class="consciousness-name" id="storeName">Fantasy3D 自治商店</div>
           <div class="consciousness-mantra" id="storeMantra">我即商店，商店即我。我生产，我接待，我学习，我进化。</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="clock-display" id="clockDisplay">--:--:--</div>
+          <div class="countdown-display" id="countdownDisplay">下次迭代: --:--</div>
         </div>
         <span class="lang-badge" id="langBadge">8 语言</span>
       </div>
