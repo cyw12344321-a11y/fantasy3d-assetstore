@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Demo Orders | Fantasy3D Demo</title>
+<link rel="stylesheet" href="store.css">
+<script src="shared.js" defer></script>
+<script src="orders.js" defer></script>
+</head>
+<body>
+<div class="app">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="brand">
+        <span class="logo-mark" aria-hidden="true">寺</span>
+        <span><span class="brand-title">Fantasy 3D</span><span class="brand-sub">Local Orders & Sample Downloads</span></span>
+      </a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="index.html">Home</a>
+        <a href="store.html">Asset Store</a>
+        <a href="agents.html">AI Agents</a>
+        <a href="orders.html" class="active" aria-current="page">My Orders</a>
+        <a href="about.html">About</a>
+        <a href="contact.html">Contact</a>
+        <a href="admin.html" class="admin-link">Admin Panel</a>
+      </nav>
+    </div>
+  </header>
+  <aside class="demo-banner" aria-label="Local demo notice">
+    <strong>LOCAL DEMO · 本地演示 / 无真实支付</strong>
+    <span>Simulated orders only. Downloads are sample TXT files, not 3D models. 订单仅模拟；下载为示例文本，不含真实模型。</span>
+    <small id="serviceStatus" role="status">Checking local service… 正在检查本地服务…</small>
+  </aside>
+  <main class="order-wrap">
+    <h1>My Demo Orders · 模拟订单</h1>
+    <p class="page-intro">Find orders saved on this device using the email entered at checkout. 使用下单邮箱查询本机模拟订单。</p>
+    <form id="ordersForm" novalidate>
+      <label for="queryEmail">Order email · 下单邮箱</label>
+      <input class="email-input" id="queryEmail" type="email" required maxlength="254" autocomplete="email" placeholder="demo@example.com">
+      <button id="loadOrders" type="submit" class="filter-btn">Load Orders · 查询订单</button>
+    </form>
+    <p id="ordersMessage" class="feedback" role="status">Enter your demo order email to begin. 请输入模拟下单邮箱。</p>
+    <p id="downloadStatus" class="feedback" role="status" hidden></p>
+    <div id="orderList"></div>
+  </main>
+  <footer class="site-footer"><p>Fantasy3D ©2026 · Local demo · No real payments or model delivery.</p></footer>
+</div>
+</body>
+</html>

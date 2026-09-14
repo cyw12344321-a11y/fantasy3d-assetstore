@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asset Store | Fantasy3D Demo</title>
+<link rel="stylesheet" href="store.css">
+<script src="shared.js" defer></script>
+<script src="store.js" defer></script>
+</head>
+<body>
+<div class="app">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="brand">
+        <span class="logo-mark" aria-hidden="true">寺</span>
+        <span><span class="brand-title">Fantasy 3D</span><span class="brand-sub">Demo Asset Catalog</span></span>
+      </a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="index.html">Home</a>
+        <a href="store.html" class="active" aria-current="page">Asset Store</a>
+        <a href="agents.html">AI Agents</a>
+        <a href="orders.html">My Orders</a>
+        <a href="about.html">About</a>
+        <a href="contact.html">Contact</a>
+        <a href="admin.html" class="admin-link">Admin Panel</a>
+      </nav>
+    </div>
+  </header>
+  <aside class="demo-banner" aria-label="Local demo notice">
+    <strong>LOCAL DEMO · 本地演示 / 无真实支付</strong>
+    <span>Simulated orders only. Downloads are sample TXT files, not 3D models. 订单仅模拟；下载为示例文本，不含真实模型。</span>
+    <small id="serviceStatus" role="status">Checking local service… 正在检查本地服务…</small>
+  </aside>
+  <main class="store-container">
+    <h1>3D Asset Store</h1>
+    <p class="page-intro">Demo listings with illustrative prices. 示例商品与演示价格，下单不扣费。</p>
+    <div class="filter-bar" aria-label="Filter assets">
+      <button type="button" class="filter-btn active" data-filter="all" aria-pressed="true">All</button>
+      <button type="button" class="filter-btn" data-filter="props" aria-pressed="false">Props 道具</button>
+      <button type="button" class="filter-btn" data-filter="environment" aria-pressed="false">Environment 场景</button>
+      <button type="button" class="filter-btn" data-filter="characters" aria-pressed="false">Characters 角色</button>
+    </div>
+    <p id="storeMessage" class="feedback" role="status">Loading demo assets…</p>
+    <button type="button" id="retryProducts" class="filter-btn" hidden>Retry · 重试</button>
+    <div class="product-grid" id="productGrid"></div>
+  </main>
+  <dialog class="modal" id="productModal" aria-labelledby="modalName">
+    <h2 id="modalName"></h2>
+    <p class="sample-note">DEMO LISTING · 示例商品描述，不代表已交付模型</p>
+    <div class="modal-desc" id="modalDesc"></div>
+    <div class="modal-price">Demo price: $<span id="modalPrice"></span></div>
+    <p class="sample-note">No payment. Sample TXT download only. 无真实支付，仅提供示例文本。</p>
+    <div class="modal-footer">
+      <button type="button" class="modal-close" id="modalClose">Close</button>
+      <button type="button" class="modal-buy" id="buyBtn">Simulate Order · 模拟下单</button>
+    </div>
+  </dialog>
+  <footer class="site-footer"><p>Fantasy3D ©2026 · Local demo · No real payments or model delivery.</p></footer>
+</div>
+</body>
+</html>
