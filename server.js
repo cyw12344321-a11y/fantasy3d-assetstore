@@ -182,16 +182,19 @@ function createStoreApp({ dataDir }) {
   const app = express();
   app.disable('x-powered-by');
   app.use((req, res, next) => {
-    // Desktop-only by default: reject DNS rebinding and cross-origin browser calls.
-    // Set PUBLIC_ACCESS=1 or ALLOWED_HOST=your.domain to enable cloud deployment.
-    const isPublic = process.env.PUBLIC_ACCESS === '1' || process.env.PUBLIC_ACCESS === 'true';
+    // 允许公开访问（云部署需要）
+    const isPublic = true;
     const allowedHost = process.env.ALLOWED_HOST;
     if (!isPublic && !allowedHost) {
       if (!/^127\.0\.0\.1:\d+$/.test(req.headers.host || '')) return res.status(403).json({ error: 'Local application access only.' });
     } else if (allowedHost && req.headers.host !== allowedHost) {
       return res.status(403).json({ error: 'Host not allowed.' });
     }
-    if (req.headers.origin && req.headers.origin !== `http://${req.headers.host}` && req.headers.origin !== `https://${req.headers.host}`) return res.status(403).json({ error: 'Cross-origin access is not allowed.' });
+    // 允许跨域访问（云部署需要）
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
