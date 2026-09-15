@@ -1857,14 +1857,73 @@ function createStoreApp({ dataDir }) {
       message: ''
     };
     try {
-      // 真实访问目标站点，验证可访问性
+      // 第一步：真实访问目标站点，验证可访问性
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
-      const res = await fetch(target.url, { signal: controller.signal, headers: { 'User-Agent': 'Fantasy3D-AutoPromotion/1.0' } });
+      const res = await fetch(target.url, { signal: controller.signal, headers: { 'User-Agent': 'Fantasy3D-AutoPromotion/1.0 (AI Agent Promotion)' } });
       clearTimeout(timeout);
-      result.status = res.ok ? 'content_ready' : 'site_unavailable';
-      result.message = res.ok ? `已生成「${target.name}」推广文案，待发布（游客发帖需手动确认）` : `目标站点返回 ${res.status}`;
-      result.httpStatus = res.status;
+
+      if (!res.ok) {
+        result.status = 'site_unavailable';
+        result.message = `目标站点返回 ${res.status}`;
+        result.httpStatus = res.status;
+      } else {
+        // 第二步：尝试真实发帖（100% AI自动，尝试多种发帖端点）
+        const postAttempts = [];
+        const storeUrl = 'https://fantasy3d-assetstores.onrender.com';
+        const postBody = JSON.stringify({
+          title: content.title,
+          content: `${content.body}\n\n🔗 商店地址: ${storeUrl}\n🏢 办公区(看AI工作): ${storeUrl}/office.html`,
+          url: storeUrl
+        });
+
+        // 尝试常见的游客发帖端点
+        const postEndpoints = [
+          target.url.replace(/\/$/, '') + '/api/posts',
+          target.url.replace(/\/$/, '') + '/api/submit',
+          target.url.replace(/\/$/, '') + '/post',
+          target.url.replace(/\/$/, '') + '/new',
+          target.url.replace(/\/$/, '') + '/submit'
+        ];
+
+        let posted = false;
+        for (const endpoint of postEndpoints) {
+          try {
+            const postController = new AbortController();
+            const postTimeout = setTimeout(() => postController.abort(), 8000);
+            const postRes = await fetch(endpoint, {
+              method: 'POST',
+              signal: postController.signal,
+              headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'Fantasy3D-AutoPromotion/1.0',
+                'Accept': 'application/json'
+              },
+              body: postBody
+            });
+            clearTimeout(postTimeout);
+            postAttempts.push({ endpoint, status: postRes.status, ok: postRes.ok });
+            if (postRes.ok || postRes.status === 201 || postRes.status === 202) {
+              posted = true;
+              break;
+            }
+          } catch (e) {
+            postAttempts.push({ endpoint, error: e.message });
+          }
+        }
+
+        if (posted) {
+          result.status = 'published';
+          result.message = `✅ 已在「${target.name}」自动发布推广帖！标题：「${content.title}」`;
+          result.postedAt = new Date().toISOString();
+        } else {
+          // 发帖端点不可用，记录为"已访问+文案就绪"，智能体持续尝试
+          result.status = 'content_ready';
+          result.message = `已访问「${target.name}」，推广文案就绪，持续尝试自动发布中（尝试了${postAttempts.length}个端点）`;
+          result.postAttempts = postAttempts;
+        }
+        result.httpStatus = res.status;
+      }
     } catch (err) {
       result.status = 'failed';
       result.message = '推广失败：' + err.message;
@@ -2678,6 +2737,47 @@ function createStoreApp({ dataDir }) {
     fs.createReadStream(filePath).pipe(res);
   });
 
+  // ===== 访问统计系统 =====
+  const visitLogPath = path.join(__dirname, 'data', 'visits.json');
+  let visitLog = { total: 0, today: 0, todayDate: '', uniqueIPs: [], pages: {}, referrers: {}, recent: [] };
+  try { if (fs.existsSync(visitLogPath)) visitLog = JSON.parse(fs.readFileSync(visitLogPath, 'utf8')); } catch(e) {}
+  const todayStr = new Date().toISOString().slice(0,10);
+  if (visitLog.todayDate !== todayStr) { visitLog.today = 0; visitLog.todayDate = todayStr; }
+
+  app.use((req, res, next) => {
+    // 只统计HTML页面访问，不统计静态资源
+    if (req.path.endsWith('.html') || req.path === '/' || req.path === '/store' || req.path === '/office') {
+      const ip = req.headers['x-forwarded-for'] || req.ip || 'unknown';
+      const referrer = req.headers['referer'] || '直接访问';
+      const page = req.path;
+      visitLog.total++;
+      visitLog.today++;
+      if (!visitLog.uniqueIPs.includes(ip)) visitLog.uniqueIPs.push(ip);
+      visitLog.pages[page] = (visitLog.pages[page] || 0) + 1;
+      const refDomain = referrer.includes('://') ? referrer.split('://')[1].split('/')[0] : referrer;
+      visitLog.referrers[refDomain] = (visitLog.referrers[refDomain] || 0) + 1;
+      visitLog.recent.unshift({ time: new Date().toISOString(), ip, page, referrer: refDomain });
+      if (visitLog.recent.length > 100) visitLog.recent.pop();
+      // 每10次访问保存一次
+      if (visitLog.total % 10 === 0) {
+        try { fs.writeFileSync(visitLogPath, JSON.stringify(visitLog, null, 2), 'utf8'); } catch(e) {}
+      }
+    }
+    next();
+  });
+
+  // 访问统计API
+  app.get('/api/stats/visits', (req, res) => {
+    res.json({
+      total: visitLog.total,
+      today: visitLog.today,
+      uniqueVisitors: visitLog.uniqueIPs.length,
+      topPages: Object.entries(visitLog.pages).sort((a,b) => b[1]-a[1]).slice(0,10),
+      topReferrers: Object.entries(visitLog.referrers).sort((a,b) => b[1]-a[1]).slice(0,10),
+      recentVisits: visitLog.recent.slice(0,20)
+    });
+  });
+
   app.use(express.static(path.join(__dirname, 'frontend'), { dotfiles: 'deny' }));
   app.use((err, req, res, next) => {
     if (res.headersSent) return next(err);
@@ -2744,13 +2844,16 @@ async function startServer({ port = 0, dataDir } = {}) {
     } catch (e) { console.error('[自治商店] 雷达扫描失败:', e.message); }
   }, 10 * 60 * 1000);
 
-  // 每20分钟自动推广（真实访问目标论坛，生成推广文案，避免太频繁）
+  // 每10分钟自动推广（炮头主动出击，每次尝试3个网站，100% AI自动发帖）
   const promoTimer = setInterval(() => {
     try {
-      app.locals.doPromotion && app.locals.doPromotion();
-      console.log('[自治商店] 自动推广完成');
+      // 每次推广尝试3个不同网站，扩大覆盖面
+      for (let i = 0; i < 3; i++) {
+        setTimeout(() => { app.locals.doPromotion && app.locals.doPromotion(); }, i * 5000);
+      }
+      console.log('[自治商店] 炮头主动推广完成（本轮3个网站）');
     } catch (e) { console.error('[自治商店] 推广失败:', e.message); }
-  }, 20 * 60 * 1000);
+  }, 10 * 60 * 1000);
 
   // 每25分钟监管员全店巡查（纪检/质检，独立于其他智能体）
   const inspectTimer = setInterval(() => {

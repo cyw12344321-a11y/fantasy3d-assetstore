@@ -3,7 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Asset Store | Fantasy3D 自治商店</title>
+<title>Fantasy3D 自治商店 | AI智能体运营的3D资产商城</title>
+<meta name="description" content="Fantasy3D是全球首个由7个AI智能体完全自治运营的3D资产商店，自动生产、自动定价、自我迭代、全球扩张。860+精品3D模型，支持PayPal付款，全球发货。">
+<meta name="keywords" content="3D模型,3D资产,游戏模型,Unity模型,UE模型,GLB,FBX,AI商店,智能体,自治商店,Fantasy3D,免费3D模型,低多边形,仙侠模型,古风建筑">
+<meta name="author" content="Fantasy3D AI Team">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Fantasy3D 自治商店 | AI智能体运营的3D资产商城">
+<meta property="og:description" content="全球首个7个AI智能体完全自治运营的3D资产商店，自动生产、自动定价、自我迭代。860+精品3D模型。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://fantasy3d-assetstores.onrender.com">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="store.css">
 <script src="shared.js" defer></script>
 <script src="store.js" defer></script>
@@ -20,6 +29,7 @@
       <nav class="main-nav" aria-label="Main navigation">
         <a href="index.html">Home</a>
         <a href="store.html" class="active" aria-current="page">Asset Store</a>
+        <a href="office.html">🏢 办公区</a>
         <a href="agents.html">AI Agents</a>
         <a href="orders.html">My Orders</a>
         <a href="about.html">About</a>
@@ -48,7 +58,30 @@
     <img src="banner.png" alt="Fantasy3D 自治商店" style="width:100%;height:auto;display:block;">
     <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.85));padding:30px 40px 20px;">
       <h2 style="margin:0;color:#fff;font-size:28px;text-shadow:0 2px 10px rgba(0,0,0,0.8);">混沌之中 · 自有秩序</h2>
-      <p style="margin:5px 0 0;color:#ccc;font-size:14px;">6个AI智能体自治运营 · 自我进化 · 全球扩张</p>
+      <p style="margin:5px 0 0;color:#ccc;font-size:14px;">7个AI智能体自治运营 · 自我进化 · 全球扩张</p>
+    </div>
+  </div>
+  <!-- 智能体办公区 2D场景（顾客可见） -->
+  <div class="office-scene" style="background:linear-gradient(180deg,#1a2530 0%,#0d1520 100%);border-bottom:2px solid #2a3a4d;padding:16px 20px;overflow:hidden;">
+    <div style="max-width:1400px;margin:0 auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+        <h3 style="margin:0;color:#c9a96e;font-size:17px;">🏢 Fantasy3D 智能体办公区 · 7×24 实时运转</h3>
+        <span id="officeClock" style="color:#8a98a5;font-size:13px;font-family:monospace;">--:--:--</span>
+      </div>
+      <!-- 2D办公区 -->
+      <div id="office2D" style="position:relative;width:100%;height:320px;background:linear-gradient(180deg,#2a3a4d 0%,#1e2d3d 60%,#3d2e1e 60%,#4a3826 100%);border-radius:12px;border:2px solid #3a4a5d;overflow:hidden;">
+        <!-- 墙壁装饰 -->
+        <div style="position:absolute;top:8px;left:50%;transform:translateX(-50%);color:#c9a96e;font-size:14px;font-weight:bold;letter-spacing:4px;opacity:0.6;">FANTASY3D 总部</div>
+        <div style="position:absolute;top:30px;left:20px;width:60px;height:40px;background:linear-gradient(135deg,#4a90d9,#2a6ab9);border:2px solid #5aa0e9;border-radius:4px;opacity:0.7;"></div>
+        <div style="position:absolute;top:30px;right:20px;width:60px;height:40px;background:linear-gradient(135deg,#4a90d9,#2a6ab9);border:2px solid #5aa0e9;border-radius:4px;opacity:0.7;"></div>
+        <!-- 店长办公室（独立区域） -->
+        <div id="managerOffice" style="position:absolute;top:50px;right:10px;width:140px;height:100px;background:rgba(201,169,110,0.1);border:2px solid #c9a96e;border-radius:8px;">
+          <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#c9a96e;color:#0d1217;font-size:10px;padding:2px 8px;border-radius:4px;font-weight:bold;">店长室</div>
+        </div>
+        <!-- 智能体角色由JS动态生成 -->
+      </div>
+      <!-- 团队状态条 -->
+      <div id="teamStatusBar" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;font-size:11px;"></div>
     </div>
   </div>
   <aside class="demo-banner" aria-label="Payment info" style="background:linear-gradient(90deg,#1a2f1a,#0f1f0f);border-color:#2d5a2d;">

@@ -135,6 +135,39 @@ body{background:#0a0f14;color:#e9edf2;min-height:100vh;}
   <!-- 状态条 -->
   <div class="status-bar" id="statusBar"></div>
 
+  <!-- 访问统计面板 -->
+  <div style="margin-top:14px;background:#111a22;border:1px solid #222f3b;border-radius:10px;padding:14px;">
+    <h4 style="color:#c9a96e;margin-bottom:10px;font-size:14px;">📊 商店访问统计</h4>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px;">
+      <div style="background:#0d1520;border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:24px;font-weight:bold;color:#71d085;" id="statTotal">--</div>
+        <div style="font-size:11px;color:#8a98a5;">总访问量</div>
+      </div>
+      <div style="background:#0d1520;border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:24px;font-weight:bold;color:#e6b249;" id="statToday">--</div>
+        <div style="font-size:11px;color:#8a98a5;">今日访问</div>
+      </div>
+      <div style="background:#0d1520;border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:24px;font-weight:bold;color:#4a90d9;" id="statUnique">--</div>
+        <div style="font-size:11px;color:#8a98a5;">独立访客</div>
+      </div>
+      <div style="background:#0d1520;border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:24px;font-weight:bold;color:#e67e22;" id="statProducts">860</div>
+        <div style="font-size:11px;color:#8a98a5;">在售商品</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <div style="font-size:12px;color:#8a98a5;margin-bottom:6px;">热门页面</div>
+        <div id="topPages" style="font-size:12px;color:#b0bcc7;"></div>
+      </div>
+      <div style="flex:1;min-width:200px;">
+        <div style="font-size:12px;color:#8a98a5;margin-bottom:6px;">最近访客</div>
+        <div id="recentVisits" style="font-size:12px;color:#b0bcc7;max-height:80px;overflow-y:auto;"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- 会议内容面板 -->
   <div class="meeting-panel" id="meetingPanel">
     <h4>📋 正在开会 · 会议记录</h4>
@@ -242,6 +275,28 @@ function showBubble(id, text) {
 function updateClock() {
   const now = new Date();
   document.getElementById('clock').textContent = now.toLocaleTimeString('zh-CN');
+}
+
+// 获取访问统计
+async function fetchVisitStats() {
+  try {
+    const res = await fetch('/api/stats/visits');
+    const data = await res.json();
+    document.getElementById('statTotal').textContent = data.total.toLocaleString();
+    document.getElementById('statToday').textContent = data.today.toLocaleString();
+    document.getElementById('statUnique').textContent = data.uniqueVisitors.toLocaleString();
+    // 热门页面
+    const pagesEl = document.getElementById('topPages');
+    pagesEl.innerHTML = data.topPages.slice(0,5).map(([page, count]) => 
+      `<div style="display:flex;justify-content:space-between;padding:2px 0;"><span>${page}</span><span style="color:#71d085;">${count}</span></div>`
+    ).join('');
+    // 最近访客
+    const recentEl = document.getElementById('recentVisits');
+    recentEl.innerHTML = data.recentVisits.slice(0,8).map(v => {
+      const time = new Date(v.time).toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
+      return `<div style="padding:2px 0;border-bottom:1px solid #1a2332;">${time} · ${v.page} · ${v.referrer}</div>`;
+    }).join('');
+  } catch(e) { console.log('获取统计失败', e); }
 }
 
 // 获取智能体状态
@@ -354,8 +409,10 @@ window.addEventListener('load', () => {
   setInterval(updateClock, 1000);
   fetchAgentStates();
   fetchMeetingState();
+  fetchVisitStats();
   setInterval(fetchAgentStates, 5000);
   setInterval(fetchMeetingState, 10000);
+  setInterval(fetchVisitStats, 30000);
   setInterval(updateScene, 1000);
 });
 </script>
