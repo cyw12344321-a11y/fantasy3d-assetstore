@@ -27,14 +27,14 @@
       </nav>
     </div>
   </header>
-  <aside class="demo-banner" aria-label="Local demo notice">
-    <strong>LOCAL DEMO · 本地演示 / 无真实支付</strong>
-    <span>Simulated orders only. Downloads are sample TXT files, not 3D models. 订单仅模拟；下载为示例文本，不含真实模型。</span>
+  <aside class="demo-banner" aria-label="Order status information">
+    <strong>订单状态以 PayPal 确认为准</strong>
+    <span>付款记录创建后会显示“等待付款确认”；支付平台确认后才能交付。</span>
     <small id="serviceStatus" role="status">Checking local service… 正在检查本地服务…</small>
   </aside>
   <main class="order-wrap">
-    <h1>My Demo Orders · 模拟订单</h1>
-    <p class="page-intro">Find orders saved on this device using the email entered at checkout. 使用下单邮箱查询本机模拟订单。</p>
+    <h1>My Orders · 我的订单</h1>
+    <p class="page-intro">Use the email entered at checkout to find purchase records. 使用下单邮箱查询购买记录。</p>
     <form id="ordersForm" novalidate>
       <label for="queryEmail">Order email · 下单邮箱</label>
       <input class="email-input" id="queryEmail" type="email" required maxlength="254" autocomplete="email" placeholder="demo@example.com">
@@ -44,7 +44,7 @@
     <p id="downloadStatus" class="feedback" role="status" hidden></p>
     <div id="orderList"></div>
   </main>
-  <footer class="site-footer"><p>Fantasy3D ©2026 · Local demo · No real payments or model delivery.</p></footer>
+  <footer class="site-footer"><p>Fantasy3D ©2026 · Orders are fulfilled after confirmed payment.</p></footer>
 </div>
 </body>
 </html>

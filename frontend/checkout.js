@@ -26,7 +26,7 @@
     try {
       const product = await request(`/store/product/${encodeURIComponent(productId)}`);
       if (!product || product.productId !== productId || product.status !== "published" || !Number.isFinite(Number(product.price))) throw new Error("This asset is unavailable. 此商品不存在或已下架，请返回商店。");
-      if (!await verifyAppInfo()) throw new Error("Local demo mode is unavailable. 请重试或重启应用。");
+      if (!await verifyAppInfo()) throw new Error("Payment link is unavailable. 请稍后重试。");
       selectedProduct = product;
       document.getElementById("productId").value = product.productId;
       document.getElementById("productName").textContent = product.name;
@@ -44,20 +44,21 @@
     submitting = true;
     submit.disabled = true;
     email.readOnly = true;
-    submit.textContent = "Creating demo order… 正在模拟下单…";
+    submit.textContent = "Creating payment record… 正在创建付款记录…";
     message(feedback, "");
     try {
       const result = await request("/order/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productId: selectedProduct.productId, email: email.value }) });
-      if (!result.success || !result.order || result.order.status !== "simulated" || typeof result.order.orderId !== "string") throw new Error("Unexpected order response. 请先查询订单再重试，以免重复创建。");
+      if (!result.success || !result.order || result.order.status !== "awaiting_payment" || typeof result.order.orderId !== "string" || typeof result.paymentUrl !== "string") throw new Error("Unexpected payment response. 请先查询订单再重试，以免重复创建。");
       completed = true;
       rememberEmail(email.value);
-      message(feedback, `Demo order ${result.order.orderId} created. Status: simulated. 模拟订单已创建，未收取任何费用。`, "success");
+      message(feedback, `Payment record ${result.order.orderId} created. 正在跳转 PayPal；付款后订单仍会等待 PayPal 确认。`, "success");
       document.getElementById("successMsg").hidden = false;
-      submit.textContent = "Demo order created · 已模拟下单";
+      submit.textContent = "Payment record created · 付款记录已创建";
+      window.open(result.paymentUrl, "_blank", "noopener");
     } catch (error) {
       message(feedback, `${error.message} If the request was interrupted, check Orders before retrying. 若请求中断，请先查看订单再重试。`, "error");
       rememberEmail(email.value);
-      submit.textContent = "Simulate Order · 模拟下单";
+      submit.textContent = "Continue to PayPal · 前往 PayPal";
     } finally { submitting = false; submit.disabled = completed; email.readOnly = completed; }
   });
   retry.addEventListener("click", loadProduct);

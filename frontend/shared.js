@@ -40,14 +40,14 @@
     }
     return valid;
   }
-  function rememberEmail(email) { try { sessionStorage.setItem("fantasy3d-demo-email", email); } catch (_) { /* Optional convenience only. */ } }
-  function recalledEmail() { try { return sessionStorage.getItem("fantasy3d-demo-email") || ""; } catch (_) { return ""; } }
+  function rememberEmail(email) { try { sessionStorage.setItem("fantasy3d-order-email", email); } catch (_) { /* Optional convenience only. */ } }
+  function recalledEmail() { try { return sessionStorage.getItem("fantasy3d-order-email") || ""; } catch (_) { return ""; } }
   async function verifyAppInfo() {
     try {
       const info = await request("/app-info");
-      if (info.mode !== "demo" || info.paymentConnected !== false || info.persistence !== "local") throw new Error("Demo mode could not be verified. 无法确认本地模拟模式。");
+      if (info.mode !== "live_storefront" || info.paymentConnected !== true) throw new Error("Payment link is not configured. 收款链接尚未配置。");
       const status = document.getElementById("serviceStatus");
-      if (status) { status.textContent = "Local data saved on this device · 数据保存在本机"; status.classList.remove("error-text"); }
+      if (status) { status.textContent = "Storefront online · 订单需等待 PayPal 确认"; status.classList.remove("error-text"); }
       return info;
     } catch (error) {
       const status = document.getElementById("serviceStatus");

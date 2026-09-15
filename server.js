@@ -244,7 +244,7 @@ function createStoreApp({ dataDir }) {
     state = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
     if (state.version !== 1 || !Array.isArray(state.products) || !Array.isArray(state.orders) ||
         state.products.some(p => !p.productId || !['draft', 'published'].includes(p.status)) ||
-        state.orders.some(o => !o.orderId || o.status !== 'simulated')) {
+        state.orders.some(o => !o.orderId || !['awaiting_payment', 'paid', 'fulfilled', 'refunded', 'simulated'].includes(o.status))) {
       throw new Error('Local store data could not be read. The existing file has not been overwritten.');
     }
     // ===== 字段迁移：确保旧数据也有新字段 =====
@@ -267,14 +267,11 @@ function createStoreApp({ dataDir }) {
     if (!state.opportunityLog) state.opportunityLog = [];
     if (!state.acquisitionLog) state.acquisitionLog = [];
     if (!state.marketingLog) state.marketingLog = [];
-    // 旧版本会把没有交付文件或授权证明的演示条目公开显示。它们不能作为
-    // 可售商品，也不能进入推广流程；在迁移时统一降为草稿。
+    // 历史商品由店主独立上传和维护。启动时只补齐缺失的审核字段，绝不
+    // 自动下架、改价、删除文件或修改已有商品内容。
     state.products.forEach(product => {
-      if (product.status === 'published' && (!product.filePath || product.licenseStatus !== 'approved' || product.deliveryStatus !== 'verified')) {
-        product.status = 'draft';
-        product.licenseStatus = product.licenseStatus || 'needs_review';
-        product.deliveryStatus = product.deliveryStatus || 'unverified';
-      }
+      if (!product.licenseStatus) product.licenseStatus = 'owner_managed';
+      if (!product.deliveryStatus) product.deliveryStatus = 'owner_managed';
     });
     // 智能体学习能力字段迁移
     const defaultSkills = {
@@ -325,7 +322,7 @@ function createStoreApp({ dataDir }) {
     next();
   });
   app.use(express.json({ limit: '16kb' }));
-  app.get('/api/app-info', (req, res) => res.json({ name: 'Fantasy3D', mode: 'demo', persistence: 'local', paymentConnected: false }));
+  app.get('/api/app-info', (req, res) => res.json({ name: 'Fantasy3D', mode: 'live_storefront', persistence: 'server', paymentConnected: Boolean(PAYMENT_CONFIG.paypalMe), paymentConfirmation: 'requires_paypal_webhook' }));
   // 智能分类：根据文件名准确判断分类
   function inferCategory(filename) {
     const lower = filename.toLowerCase();
@@ -404,19 +401,19 @@ function createStoreApp({ dataDir }) {
   });
   app.get('/api/store/product/:id', (req, res) => {
     const product = state.products.find(p => p.productId === req.params.id && p.status === 'published');
-    if (!product) return res.status(404).json({ error: 'This example asset is not available.' });
+    if (!product) return res.status(404).json({ error: 'This product is not available.' });
     res.json(product);
   });
   app.post('/api/order/create', (req, res) => {
     const { productId, email } = req.body || {};
-    if (!validEmail(email)) return res.status(400).json({ error: 'Enter a valid email address for this local demo order.' });
+    if (!validEmail(email)) return res.status(400).json({ error: 'Enter a valid email address for the purchase record.' });
     const product = state.products.find(p => p.productId === productId && p.status === 'published');
-    if (!product) return res.status(400).json({ error: 'This example asset is not available.' });
-    if (state.orders.length >= 10000) return res.status(409).json({ error: 'The local demo order limit has been reached.' });
-    const orderId = 'DEMO-' + randomUUID();
-    const order = { orderId, productId, productName: product.name, price: product.price, email: email.trim().toLowerCase(), status: 'simulated', createdAt: new Date().toISOString(), downloadUrl: `/api/download/${orderId}` };
+    if (!product) return res.status(400).json({ error: 'This product is not available.' });
+    if (state.orders.length >= 10000) return res.status(409).json({ error: 'The order limit has been reached.' });
+    const orderId = 'PAY-' + randomUUID();
+    const order = { orderId, productId, productName: product.name, price: product.price, email: email.trim().toLowerCase(), status: 'awaiting_payment', createdAt: new Date().toISOString(), paymentMethod: 'PayPal', paymentUrl: PAYMENT_CONFIG.paypalMe };
     commit({ ...state, orders: [...state.orders, order] });
-    res.status(201).json({ success: true, order });
+    res.status(201).json({ success: true, order, paymentUrl: PAYMENT_CONFIG.paypalMe, message: 'Payment record created. The order remains awaiting_payment until PayPal confirms payment.' });
   });
   app.get('/api/orders/list', (req, res) => {
     if (!validEmail(req.query.email)) return res.status(400).json({ error: 'Enter a valid email address.' });
@@ -424,9 +421,10 @@ function createStoreApp({ dataDir }) {
   });
   app.get('/api/download/:orderId', (req, res) => {
     const order = state.orders.find(o => o.orderId === req.params.orderId);
-    if (!order) return res.status(404).json({ error: 'Demo order not found.' });
-    res.attachment(`Fantasy3D-${order.productId}-DEMO.txt`);
-    res.type('text/plain').send(`Fantasy3D — LOCAL DEMO ONLY\n\nExample asset: ${order.productName}\nProduct ID: ${order.productId}\nOrder: ${order.orderId}\nStatus: simulated / no payment taken\n\nThis TXT file demonstrates the download flow. It contains no 3D model, texture, collider or commercial asset license.\n\n这是演示下载说明，不是真实模型包，也不代表已经付款。\n`);
+    if (!order) return res.status(404).json({ error: 'Order not found.' });
+    if (!['paid', 'fulfilled'].includes(order.status)) return res.status(409).json({ error: 'Payment has not been confirmed. Delivery is unavailable.' });
+    if (!order.downloadUrl) return res.status(409).json({ error: 'Delivery link has not been configured for this order.' });
+    res.redirect(302, order.downloadUrl);
   });
   app.get('/api/admin/products', (req, res) => res.json({ products: state.products }));
   app.post('/api/admin/product/status', (req, res) => {
@@ -640,8 +638,9 @@ function createStoreApp({ dataDir }) {
       return `🧠 商店状态汇报\n\n**商店意识：**\n• 名称：${state.consciousness.name}\n• 目标：${state.consciousness.goal}\n• 迭代轮次：${state.consciousness.iteration}\n• 状态：${state.consciousness.status}\n\n**运营数据：**\n• 上架商品：${published.length} 件\n• 累计订单：${state.orders.length} 笔\n• 模拟营收：¥${state.orders.reduce((s, o) => s + o.price, 0).toFixed(2)}\n\n**团队状态：**\n${agents.map(a => `• ${a.avatar} ${a.name}：${state.agentStates[a.id]?.currentTask || '待命'}`).join('\n')}\n\n我即商店，商店即我。持续进化中。`;
     }
     if (/生产|制造|创造|新商品|上架/.test(text)) {
-      const result = produceNewAsset();
-      return `🧠 店长指派生产上架智能体执行生产任务！\n\n**生产结果：**\n${result.message}\n\n**当前商品总数：** ${state.products.length} 件`;
+      const opportunity = scanRevenueOpportunities().opportunities[0];
+      const result = createProductionBrief(opportunity);
+      return `🧠 店长已创建生产需求单，而不是虚构商品或自动上架。\n\n**生产需求：**\n${result.brief?.title || result.message}\n\n需求将在来源、许可和交付文件审核完成后，才可进入上架流程。`;
     }
     return `你好！我是店长智能体 🧠，商店的大脑和决策者。\n\n**我的职责：**\n• 统筹协调5个专业智能体\n• 制定战略和运营决策\n• 触发自我迭代和学习进化\n• 召开团队会议，集体商量\n\n**你可以让我：**\n• "自我迭代" — 触发商店进化\n• "开个会" — 团队商量决策\n• "状态汇报" — 查看商店全貌\n• "生产新商品" — 指派生产任务\n\n${state.consciousness.mantra}`;
   }
@@ -2326,66 +2325,62 @@ function createStoreApp({ dataDir }) {
     return { success: true, message: `从${source.name}采集「${item.name}」(${categoryNames[source.category]})，定价$1.00自动上架`, product: newProduct, source: source.name };
   }
 
-  // ===== 智能定价引擎（$0.10-$1.00区间，卖得好涨，卖不好降，不频繁）=====
+  // ===== 自动定价策略：只根据真实、可验证的付款数据执行 =====
   function autoPriceProduct(productId) {
     const product = state.products.find(p => p.productId === productId);
     if (!product) return { success: false, error: '商品不存在' };
-    // 价格区间：最低$0.10，最高$1.00
     const MIN_PRICE = 0.10;
-    const MAX_PRICE = 1.00;
-    // 模拟销量数据（如果没有销量字段，初始化为0）
-    if (product.salesCount === undefined) product.salesCount = Math.floor(Math.random() * 5);
+    const MAX_PRICE = 9999;
+    // “simulated” 演示订单永远不计入经营决策，避免系统拿虚假数据调价。
+    const paidOrders = state.orders.filter(order => order.productId === productId && order.status === 'paid');
+    const priceAge = Date.now() - new Date(product.lastPriceChange || product.createdAt || 0).getTime();
+    const decision = {
+      productId, name: product.name, timestamp: new Date().toISOString(),
+      paidOrders: paidOrders.length, currentPrice: Number(product.price) || 0,
+      status: 'observing', reason: ''
+    };
     if (product.priceHistory === undefined) product.priceHistory = [];
-    // 记录上次调价时间，避免太频繁（至少间隔6小时）
-    const now = Date.now();
-    if (product.lastPriceChange && (now - product.lastPriceChange) < 6 * 60 * 60 * 1000) {
-      return { success: false, message: `「${product.name}」距上次调价不足6小时，跳过` };
+    // 每件商品至少相隔 14 天；样本不足时保持现价并继续观察。
+    if (product.lastPriceChange && priceAge < 14 * 24 * 60 * 60 * 1000) {
+      decision.reason = '距上次调价不足14天，继续观察。';
+      return { success: false, decision, message: decision.reason };
     }
-    const oldPrice = product.price;
-    let newPrice = oldPrice;
-    let reason = '';
-    // 根据销量调整：销量>=3涨价，销量=0降价，中间不动
-    if (product.salesCount >= 3) {
-      // 卖得好，涨价5-10美分
-      const increase = 0.05 + Math.random() * 0.05;
-      newPrice = Math.min(MAX_PRICE, Math.round((oldPrice + increase) * 100) / 100);
-      reason = `销量${product.salesCount}件表现好，涨价至$${newPrice}`;
-    } else if (product.salesCount === 0) {
-      // 卖不动，降价5-10美分
-      const decrease = 0.05 + Math.random() * 0.05;
-      newPrice = Math.max(MIN_PRICE, Math.round((oldPrice - decrease) * 100) / 100);
-      reason = `销量为0卖不动，降价至$${newPrice}`;
-    } else {
-      return { success: false, message: `「${product.name}」销量${product.salesCount}件，价格维持$${oldPrice}` };
+    if (paidOrders.length < 3) {
+      decision.reason = '真实付款订单不足3笔；不基于演示订单或猜测改价。';
+      return { success: false, decision, message: decision.reason };
     }
+    const oldPrice = decision.currentPrice;
+    const newPrice = Math.min(MAX_PRICE, Math.max(MIN_PRICE, Math.round(oldPrice * 1.05 * 100) / 100));
     if (newPrice === oldPrice) {
-      return { success: false, message: `「${product.name}」已到价格区间边界，维持$${oldPrice}` };
+      decision.reason = '价格已在策略边界，维持现价。';
+      return { success: false, decision, message: decision.reason };
     }
     product.price = newPrice;
-    product.lastPriceChange = now;
-    product.priceHistory.push({ time: new Date().toISOString(), oldPrice, newPrice, reason });
+    product.lastPriceChange = Date.now();
+    decision.status = 'applied';
+    decision.reason = '14天内已确认至少3笔真实付款订单，按策略上调5%。';
+    product.priceHistory.push({ time: decision.timestamp, oldPrice, newPrice, reason: decision.reason, evidence: { paidOrders: paidOrders.length } });
     if (product.priceHistory.length > 20) product.priceHistory = product.priceHistory.slice(-20);
     state.agentStates.listing.status = 'working';
     state.agentStates.listing.currentTask = `智能定价「${product.name}」`;
     state.agentStates.listing.lastAction = new Date().toISOString();
     state.agentStates.listing.experience += 1;
     commit(state);
-    return { success: true, productId, name: product.name, oldPrice, newPrice, change: ((newPrice - oldPrice) / oldPrice * 100).toFixed(1) + '%', reason };
+    return { success: true, productId, name: product.name, oldPrice, newPrice, change: ((newPrice - oldPrice) / oldPrice * 100).toFixed(1) + '%', reason: decision.reason, decision };
   }
 
-  // 批量智能调价（每次只调5个，避免太频繁）
+  // 每轮评估全部公开商品；实际改价受上述证据阈值、时间间隔和幅度限制。
   function batchAutoPrice() {
     const published = state.products.filter(p => p.status === 'published');
     if (published.length === 0) return { success: false, message: '暂无商品' };
-    // 随机选5个商品调价
-    const shuffled = published.sort(() => Math.random() - 0.5);
-    const targets = shuffled.slice(0, 5);
     const results = [];
-    targets.forEach(p => {
+    const observed = [];
+    published.forEach(p => {
       const r = autoPriceProduct(p.productId);
       if (r.success) results.push(r);
+      else if (r.decision) observed.push(r.decision);
     });
-    return { success: true, adjusted: results.length, results };
+    return { success: true, adjusted: results.length, results, observed };
   }
 
   // ===== 主动推销（智能体主动找客人、介绍自己）=====
@@ -2522,23 +2517,24 @@ function createStoreApp({ dataDir }) {
     return task;
   }
   function createPromotionDraft() {
-    const product = state.products.find(p => p.status === 'published' && p.filePath && p.licenseStatus === 'approved');
-    if (!product) return { success: false, message: '没有已验证授权且可交付的商品；未生成推广草稿。' };
+    const product = state.products.find(p => p.status === 'published' && p.promotionEligible !== false);
+    if (!product) return { success: false, message: '没有公开商品；未生成推广草稿。' };
     const storeUrl = 'https://fantasy3d-assetstores.onrender.com/store.html';
     const baseText = product.spec?.shortDesc || product.name;
     const draft = {
       id: 'DRAFT-' + randomUUID(), timestamp: new Date().toISOString(), productId: product.productId,
       title: product.name + ' — 3D asset for game developers',
-      body: baseText + '\n\nLicense and delivery have been checked. See the store page for details.',
+      body: baseText + '\n\nSee the product page for current delivery and license details.',
       tags: ['3d-assets', 'game-development'], status: 'ready_for_channel_connection', publishedAt: null,
       channels: [
         { channel: 'itch.io devlog', status: 'waiting_for_connection', url: storeUrl + '?utm_source=itchio&utm_medium=devlog&utm_campaign=' + product.productId, body: 'New asset: ' + product.name + '. ' + baseText },
+        { channel: 'Hugging Face Space', status: 'waiting_for_connection', url: storeUrl + '?utm_source=huggingface&utm_medium=space&utm_campaign=' + product.productId, body: 'Try the related free browser demo, then see ' + product.name + ' in the store. ' + baseText },
         { channel: 'developer community', status: 'waiting_for_connection', url: storeUrl + '?utm_source=community&utm_medium=post&utm_campaign=' + product.productId, body: 'Sharing a production-ready 3D asset for game developers: ' + product.name + '. ' + baseText },
         { channel: 'social profile', status: 'waiting_for_connection', url: storeUrl + '?utm_source=social&utm_medium=post&utm_campaign=' + product.productId, body: product.name + ' is now available. ' + baseText }
       ]
     };
     state.promotionDrafts.push(draft);
-    createTask('recommendation', '生成多渠道推广队列：' + product.name, ['草稿 ' + draft.id, '3 个渠道文案已准备，等待对应官方账号连接后发布']);
+    createTask('recommendation', '生成多渠道推广队列：' + product.name, ['草稿 ' + draft.id, '4 个渠道文案已准备，等待对应官方账号连接后发布']);
     commit(state);
     return { success: true, draft };
   }
@@ -2838,8 +2834,8 @@ function createStoreApp({ dataDir }) {
   });
 
   // ===== 监管员巡查 API =====
-  app.post('/api/store/inspect', async (req, res) => {
-    const result = await inspectStore();
+  app.post('/api/store/inspect', (req, res) => {
+    const result = safeCatalogInspection();
     res.status(201).json({ success: true, inspection: result });
   });
   app.get('/api/store/inspections', (req, res) => {

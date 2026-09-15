@@ -8,37 +8,30 @@
   const feedback = document.getElementById("ordersMessage");
   let loading = false;
   email.value = recalledEmail();
-  window.addEventListener("fantasy3d-download", event => {
-    const detail = event.detail || {};
-    const status = document.getElementById("downloadStatus");
-    if (detail.state === "completed") message(status, `Sample TXT saved: ${detail.path || "Downloads"}. 示例文本已保存，不含模型。`, "success");
-    else if (detail.state === "failed") message(status, detail.message || "Sample download failed. 示例文本下载失败，请重试。", "error");
-  });
-  async function downloadSample(order, button, status) {
+  async function downloadPaidOrder(order, button, status) {
     if (button.disabled) return;
     button.disabled = true;
-    button.textContent = "Preparing sample…";
+    button.textContent = "Preparing delivery…";
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
     try {
       const path = `/api/download/${encodeURIComponent(order.orderId)}`;
       const response = await fetch(path, { signal: controller.signal });
       if (!response.ok) {
-        let errorText = `Sample download failed (${response.status}).`;
+        let errorText = `Delivery download failed (${response.status}).`;
         try { const data = await response.json(); if (typeof data.error === "string") errorText = data.error; } catch (_) { /* Keep HTTP error. */ }
         throw new Error(errorText);
       }
-      if (!(response.headers.get("content-type") || "").includes("text/plain")) throw new Error("Unexpected sample format. 示例文件格式异常。");
-      await response.text();
+      if (response.redirected) { window.location.href = response.url; return; }
       const link = node("a");
       link.href = path;
-      link.download = `Fantasy3D-sample-${String(order.orderId).replace(/[^a-zA-Z0-9_-]/g, "_")}.txt`;
+      link.download = `Fantasy3D-${String(order.orderId).replace(/[^a-zA-Z0-9_-]/g, "_")}`;
       document.body.append(link);
       link.click();
       link.remove();
-      message(status, "Sample TXT download starting… 正在下载示例文本至 Downloads 文件夹；不含真实 3D 模型。");
+      message(status, "Delivery download is starting… 正在开始下载交付文件。");
     } catch (error) { message(status, error.name === "AbortError" ? "Download timed out. 下载超时，请重试。" : `${error.message} 下载失败，请重试。`, "error"); }
-    finally { clearTimeout(timeout); button.disabled = false; button.textContent = "Download Sample TXT · 下载示例文本"; }
+    finally { clearTimeout(timeout); button.disabled = false; button.textContent = "Download delivery · 下载交付文件"; }
   }
   async function loadOrders() {
     if (loading) return;
@@ -47,25 +40,27 @@
     submit.disabled = true;
     email.readOnly = true;
     list.replaceChildren();
-    message(feedback, "Loading local demo orders… 正在查询本地模拟订单…");
+    message(feedback, "Loading orders… 正在查询订单…");
     try {
       const data = await request(`/orders/list?email=${encodeURIComponent(email.value)}`);
       if (!Array.isArray(data.orders)) throw new Error("Invalid order list. 订单列表数据异常。");
       rememberEmail(email.value);
-      message(feedback, data.orders.length ? `${data.orders.length} demo order(s). 模拟订单，无真实支付。` : "No local demo orders for this email. 此邮箱暂无本地模拟订单。");
+      message(feedback, data.orders.length ? `${data.orders.length} order(s) found. 已找到 ${data.orders.length} 笔订单。` : "No orders found for this email. 此邮箱暂无订单。");
       data.orders.forEach(order => {
         if (!order || typeof order.orderId !== "string") throw new Error("Invalid order data. 订单数据异常。");
         const card = node("article", undefined, "order-card");
-        card.append(node("h3", order.productName), node("p", `Order ID: ${order.orderId}`), node("p", `Demo price: $${money(order.price)} · Charged: $0.00`), node("p", `Status: ${order.status === "simulated" ? "simulated · 模拟订单" : "unverified · 状态未确认"}`));
+        const labels = { awaiting_payment: "Awaiting PayPal confirmation · 等待 PayPal 确认", paid: "Paid · 已付款", fulfilled: "Fulfilled · 已交付", refunded: "Refunded · 已退款" };
+        card.append(node("h3", order.productName), node("p", `Order ID: ${order.orderId}`), node("p", `Price: $${money(order.price)} USD`), node("p", `Status: ${labels[order.status] || order.status}`));
         const status = node("p", "", "feedback");
         status.hidden = true;
-        if (order.status === "simulated") {
-          const download = node("button", "Download Sample TXT · 下载示例文本", "download-btn");
+        if (["paid", "fulfilled"].includes(order.status)) {
+          const download = node("button", "Download delivery · 下载交付文件", "download-btn");
           download.type = "button";
-          download.addEventListener("click", () => downloadSample(order, download, status));
+          download.addEventListener("click", () => downloadPaidOrder(order, download, status));
           card.append(download);
         }
-        card.append(node("p", "Sample text only; no model files included. 仅示例文本，不含模型文件。", "sample-note"), status);
+        if (order.status === "awaiting_payment") card.append(node("p", "Pay at the linked PayPal page. Delivery unlocks after payment is confirmed. 请在 PayPal 完成付款；确认后才可交付。", "sample-note"));
+        card.append(status);
         list.append(card);
       });
     } catch (error) { list.replaceChildren(); message(feedback, error.message, "error"); }
