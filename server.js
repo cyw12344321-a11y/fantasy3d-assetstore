@@ -1864,11 +1864,21 @@ function createStoreApp({ dataDir }) {
   // 扫描项目内的模型文件（部署到Render后用，自动根据GLB生成商品）
   function scanProjectModels() {
     const results = { scanned: 0, added: 0, skipped: 0 };
+    // 自动发现所有模型目录：frontend/models + frontend和根目录下所有models_batch开头的文件夹
     const searchDirs = [path.join(__dirname, 'frontend', 'models')];
-    // 添加models_batch1-10目录
-    for (let i = 1; i <= 10; i++) {
-      searchDirs.push(path.join(__dirname, 'frontend', `models_batch${i}`));
-    }
+    const collectBatchDirs = (baseDir) => {
+      if (!fs.existsSync(baseDir)) return;
+      try {
+        for (const entry of fs.readdirSync(baseDir)) {
+          if (entry.toLowerCase().startsWith('models_batch')) {
+            const full = path.join(baseDir, entry);
+            if (fs.statSync(full).isDirectory()) searchDirs.push(full);
+          }
+        }
+      } catch (e) {}
+    };
+    collectBatchDirs(path.join(__dirname, 'frontend'));
+    collectBatchDirs(__dirname);
     const existingNames = new Set(state.products.map(p => p.name.toLowerCase()));
     for (const scanDir of searchDirs) {
       if (!fs.existsSync(scanDir)) continue;
@@ -2453,11 +2463,24 @@ function createStoreApp({ dataDir }) {
       path.join(frontendDir, 'models', filename),
       path.join(frontendDir, 'models', glbName),
     ];
-    // 添加models_batch1到models_batch10子目录
-    for (let i = 1; i <= 10; i++) {
-      searchPaths.push(path.join(frontendDir, `models_batch${i}`, filename));
-      searchPaths.push(path.join(frontendDir, `models_batch${i}`, glbName));
-    }
+    // 自动发现所有models_batch开头的文件夹（frontend下和根目录都搜）
+    const collectBatchPaths = (baseDir, target) => {
+      if (!fs.existsSync(baseDir)) return;
+      try {
+        for (const entry of fs.readdirSync(baseDir)) {
+          if (entry.toLowerCase().startsWith('models_batch')) {
+            const full = path.join(baseDir, entry);
+            if (fs.statSync(full).isDirectory()) {
+              searchPaths.push(path.join(full, target));
+            }
+          }
+        }
+      } catch (e) {}
+    };
+    collectBatchPaths(frontendDir, filename);
+    collectBatchPaths(frontendDir, glbName);
+    collectBatchPaths(__dirname, filename);
+    collectBatchPaths(__dirname, glbName);
     searchPaths.push(
       path.join(AUTONOMY_CONFIG.localModelDir, '_preview', filename),
       path.join(AUTONOMY_CONFIG.localModelDir, '_preview', glbName),
