@@ -118,11 +118,21 @@ body{background:#0a0f14;color:#e9edf2;min-height:100vh;}
 <div class="office-wrap">
   <div class="office-title">
     <h2>🏢 智能体办公区 · 实时监控</h2>
-    <span><button id="meetingButton" type="button">召开运营会议</button> <span class="status" id="overallStatus">● 正在同步任务</span></span>
+    <span><button id="workflowButton" type="button">运行一轮工作流</button> <button id="meetingButton" type="button">召开运营会议</button> <span class="status" id="overallStatus">● 正在同步任务</span></span>
   </div>
   <div class="scene" id="scene"></div>
   <div class="status-bar" id="statusBar"></div>
   <div class="legend">说明：小人坐在工位办公时身体会轻微晃动；总稽查（持斧）会起身在办公区走动巡查；到点全体起身走到右侧会议室围坐开会，会后走回工位。</div>
+
+  <div class="stats-panel" style="margin-top:12px;">
+    <h4>🧭 工作流记录</h4>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="num" id="workflowDone">0</div><div class="label">已记录任务</div></div>
+      <div class="stat-card"><div class="num" id="workflowDrafts">0</div><div class="label">待审核推广草稿</div></div>
+      <div class="stat-card"><div class="num" id="workflowPublished">0</div><div class="label">已发布推广</div></div>
+      <div class="stat-card"><div class="num" id="workflowOrders">0</div><div class="label">真实订单</div></div>
+    </div>
+  </div>
 
   <div class="stats-panel">
     <h4>📊 商店访问统计</h4>
@@ -310,6 +320,21 @@ async function syncOffice(){
     }
   }catch(_){ document.getElementById('overallStatus').textContent='○ 无法连接本地服务'; }
 }
+async function syncWorkflow(){
+  try{
+    const result=await fetch('/api/store/workflow');
+    const workflow=await result.json();
+    document.getElementById('workflowDone').textContent=workflow.completedTasks || 0;
+    document.getElementById('workflowDrafts').textContent=workflow.promotionDrafts || 0;
+    document.getElementById('workflowPublished').textContent=workflow.publishedPromotions || 0;
+    document.getElementById('workflowOrders').textContent=workflow.realOrders || 0;
+  }catch(_){}
+}
+async function runWorkflow(){
+  const button=document.getElementById('workflowButton'); button.disabled=true;
+  try{ await fetch('/api/store/workflow/run',{method:'POST'}); await syncOffice(); await syncWorkflow(); }
+  finally{ button.disabled=false; }
+}
 async function requestMeeting(){
   const button=document.getElementById('meetingButton'); button.disabled=true;
   try{ await fetch('/api/store/meeting',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:'运营任务复盘'})}); await syncOffice(); }
@@ -320,8 +345,9 @@ window.addEventListener('load',()=>{
   init();
   updateClock();setInterval(updateClock,1000);
   document.getElementById('meetingButton').addEventListener('click',requestMeeting);
+  document.getElementById('workflowButton').addEventListener('click',runWorkflow);
   fetchStats();setInterval(fetchStats,30000);
-  syncOffice();setInterval(syncOffice,10000);
+  syncOffice();syncWorkflow();setInterval(syncOffice,10000);setInterval(syncWorkflow,10000);
   setInterval(updateBar,1500);
 });
 </script>

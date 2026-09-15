@@ -2545,6 +2545,13 @@ function createStoreApp({ dataDir }) {
     commit(state);
     return { ...result, message: '扫描完成：新增 ' + result.added + ' 个待授权审核草稿，未自动上架。' };
   }
+  function safeCatalogAudit() {
+    const published = state.products.filter(product => product.status === 'published').length;
+    const drafts = state.products.filter(product => product.status === 'draft').length;
+    createTask('listing', '盘点现有商品目录', ['已上架：' + published + ' 个', '草稿：' + drafts + ' 个', '未更改任何模型文件、商品内容、价格或上架状态']);
+    commit(state);
+    return { published, drafts, message: '已完成目录盘点；没有扫描、上传、删除或修改任何3D模型。' };
+  }
   function safeIteration() {
     state.consciousness.iteration += 1;
     const task = createTask('manager', '生成第 ' + state.consciousness.iteration + ' 轮本地运营计划', ['已核对可售商品、待审核素材、真实订单和站内咨询。', '未伪造成交，未向外部平台发帖。']);
@@ -2566,6 +2573,32 @@ function createStoreApp({ dataDir }) {
     createTask('support', '检查站内咨询与订单线索', ['当前仅统计站内真实咨询和已验证订单', '未向外部用户发送消息']);
     commit(state);
     return { success: true, leadsGenerated: 0, converted: 0, conversionRate: '0.0%', source: '站内收件箱', action: '已检查站内线索；没有伪造客户或成交。' };
+  }
+  function workflowSummary() {
+    taskLedger();
+    const tasks = state.tasks || [];
+    const done = tasks.filter(task => task.status === 'done').length;
+    const queued = tasks.filter(task => task.status === 'queued' || task.status === 'working').length;
+    return {
+      tasks: tasks.slice(-30).reverse(),
+      completedTasks: done,
+      activeTasks: queued,
+      promotionDrafts: state.promotionDrafts.filter(draft => draft.status === 'ready_for_review').length,
+      publishedPromotions: state.promotionDrafts.filter(draft => draft.status === 'published').length,
+      realOrders: state.orders.length,
+      realRevenue: state.orders.reduce((total, order) => total + (Number(order.price) || 0), 0)
+    };
+  }
+  function runStoreWorkflow() {
+    const research = safeResearch();
+    const scan = safeCatalogAudit();
+    const iteration = safeIteration();
+    const promotion = createPromotionDraft();
+    const support = safeAcquire();
+    createTask('order', '核对已验证订单与下载权限', ['真实订单数：' + state.orders.length, '没有创建虚假付款记录']);
+    createTask('manager', '完成一轮可核查运营工作流', ['调研、审核、运营计划、推广草稿和线索检查均已记录']);
+    commit(state);
+    return { research, scan, iteration, promotion, support, summary: workflowSummary() };
   }
 
   const agentHandlers = {
@@ -2602,6 +2635,11 @@ function createStoreApp({ dataDir }) {
   app.get('/api/store/tasks', (req, res) => {
     taskLedger();
     res.json({ tasks: state.tasks.slice(-30).reverse(), promotionDrafts: state.promotionDrafts.slice(-20).reverse(), researchCandidates: state.researchCandidates.slice(-20).reverse() });
+  });
+  app.get('/api/store/workflow', (req, res) => res.json(workflowSummary()));
+  app.post('/api/store/workflow/run', (req, res) => {
+    const run = runStoreWorkflow();
+    res.status(201).json({ success: true, run });
   });
 
   // 访问统计API
@@ -2770,6 +2808,14 @@ function createStoreApp({ dataDir }) {
     if (!result.success) return res.status(400).json(result);
     res.status(201).json({ success: true, campaign: result.draft, message: '已生成待审核草稿，未对外发布。' });
   });
+  app.post('/api/store/marketing/dispatch', (req, res) => {
+    const { draftId } = req.body || {};
+    const draft = state.promotionDrafts.find(item => item.id === draftId);
+    if (!draft) return res.status(404).json({ error: '推广草稿不存在。' });
+    createTask('recommendation', '等待已连接推广渠道后发布草稿', ['草稿：' + draft.id, '尚未连接任何第三方发布渠道，未对外发帖']);
+    commit(state);
+    res.status(409).json({ success: false, message: '尚未接入发布渠道。草稿已保留，连接官方账号后才能发布并记录链接。' });
+  });
   app.get('/api/store/marketing', (req, res) => {
     taskLedger();
     res.json({
@@ -2925,11 +2971,12 @@ function createStoreApp({ dataDir }) {
 
   // 挂载自治函数到app.locals，供定时器调用
   app.locals.runIteration = safeIteration;
-  app.locals.scanLocal = safeLocalScan;
+  app.locals.scanLocal = safeCatalogAudit;
   app.locals.webSearch = safeResearch;
   app.locals.holdMeeting = holdTeamMeeting;
   app.locals.runRadar = scanOpportunities;
   app.locals.doPromotion = createPromotionDraft;
+  app.locals.runWorkflow = runStoreWorkflow;
   app.locals.doInspect = inspectStore;
 
   return app;
