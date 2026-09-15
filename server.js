@@ -5,12 +5,19 @@ const fs = require('node:fs');
 const os = require('node:os');
 const { randomUUID } = require('node:crypto');
 
-// ===== 大模型 AI 配置（DeepSeek 大模型，6个智能体通过人设提示词区分）=====
+// ===== 大模型 AI 配置（DeepSeek 驱动6个运营智能体，千问独立驱动监管员，形成制衡）=====
 const AI_CONFIG = {
   provider: process.env.AI_PROVIDER || 'openai',
   apiKey: process.env.AI_API_KEY || 'sk-422f468b1cff4e768deca4f4221faa17',
   apiBase: process.env.AI_API_BASE || 'https://api.deepseek.com',
   model: process.env.AI_MODEL || 'deepseek-chat',
+  // 监管员独立使用千问大模型（与DeepSeek团队形成独立制衡，避免自己监管自己）
+  inspector: {
+    provider: 'qwen',
+    apiKey: process.env.QWEN_API_KEY || 'sk-ws-H.PHRMMYH.DJUU.MEYCIQCT9ki6-NF3H0sBrqLkHGHWfjE72hKZwq4VO_flah3gIgIhAJd_m3cDo3W-R3vZqc7qau7juCrUx3qRLx2a1257-9CZ',
+    apiBase: 'https://ws-dab1qd4falvbvd1g.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
+    model: 'qwen-turbo'
+  },
   cozeBotIds: {
     manager: process.env.COZE_BOT_MANAGER || '',
     researcher: process.env.COZE_BOT_RESEARCHER || '',
@@ -43,7 +50,8 @@ const AGENT_SYSTEM_PROMPTS = {
   recommendation: '你是 Fantasy3D 自治商店的推荐智能体，负责根据用户需求推荐最合适的3D资产，发现商机，分析性价比。你要主动、热情，善于发现用户的潜在需求。',
   support: '你是 Fantasy3D 自治商店的接待智能体，7×24小时在线，负责客户咨询、售后服务、反馈收集。你要耐心、专业，让客户感到被重视。',
   order: '你是 Fantasy3D 自治商店的订单智能体，负责订单查询、下载链接分发、状态跟踪和销售数据分析。你要高效、准确，快速解决客户的订单问题。',
-  listing: '你是 Fantasy3D 自治商店的生产上架智能体，负责自主生产商品、生成描述、定价建议、自动上架。你要富有创造力，能产出高质量的商品内容。'
+  listing: '你是 Fantasy3D 自治商店的生产上架智能体，负责自主生产商品、生成描述、定价建议、自动上架。你要富有创造力，能产出高质量的商品内容。',
+  inspector: '你是 Fantasy3D 自治商店的监管巡视智能体，是商店的纪检和质检。你独立于其他6个智能体，专门负责巡查问题：检查商品重复/损坏/描述不符、价格异常、智能体怠工、运营漏洞。你铁面无私，发现问题立即上报并督促整改，确保商店健康运转。你的口头禅是"巡查无死角，整改不过夜"。'
 };
 
 async function callAI(agentId, userMessage, context) {
@@ -98,6 +106,26 @@ async function callAI(agentId, userMessage, context) {
         if (retrieveData.data && retrieveData.data.status === 'failed') break;
       }
       return result;
+    }
+    // 监管员独立使用千问大模型（与DeepSeek团队形成制衡，独立判断更客观）
+    if (agentId === 'inspector' && AI_CONFIG.inspector && AI_CONFIG.inspector.apiKey) {
+      const q = AI_CONFIG.inspector;
+      const response = await fetch(q.apiBase + '/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + q.apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: q.model,
+          messages: [
+            { role: 'system', content: systemPrompt + contextStr },
+            { role: 'user', content: userMessage }
+          ],
+          temperature: 0.5,
+          max_tokens: 1000
+        })
+      });
+      const data = await response.json();
+      if (data.choices && data.choices[0] && data.choices[0].message) return data.choices[0].message.content;
+      return null;
     }
     if (AI_CONFIG.provider === 'openai') {
       const response = await fetch((AI_CONFIG.apiBase || 'https://api.deepseek.com') + '/v1/chat/completions', {
@@ -190,7 +218,8 @@ function createStoreApp({ dataDir }) {
       support: { status: 'idle', currentTask: '等待客户咨询', experience: 0, lastAction: null, learningLog: [], skills: { communication: 10, empathy: 10, problemSolving: 10 } },
       order: { status: 'idle', currentTask: '等待订单查询', experience: 0, lastAction: null, learningLog: [], skills: { analytics: 10, accuracy: 10, efficiency: 10 } },
       listing: { status: 'idle', currentTask: '等待上架任务', experience: 0, lastAction: null, learningLog: [], skills: { production: 10, quality: 10, optimization: 10 } },
-      researcher: { status: 'idle', currentTask: '监测市场趋势', experience: 0, lastAction: null, learningLog: [], skills: { research: 10, insight: 10, prediction: 10 } }
+      researcher: { status: 'idle', currentTask: '监测市场趋势', experience: 0, lastAction: null, learningLog: [], skills: { research: 10, insight: 10, prediction: 10 } },
+      inspector: { status: 'idle', currentTask: '巡视全店', experience: 0, lastAction: null, learningLog: [], skills: { audit: 10, detection: 10, enforcement: 10 } }
     },
     // ===== 迭代日志 =====
     iterations: [],
@@ -237,7 +266,8 @@ function createStoreApp({ dataDir }) {
       support: { communication: 10, empathy: 10, problemSolving: 10 },
       order: { analytics: 10, accuracy: 10, efficiency: 10 },
       listing: { production: 10, quality: 10, optimization: 10 },
-      researcher: { research: 10, insight: 10, prediction: 10 }
+      researcher: { research: 10, insight: 10, prediction: 10 },
+      inspector: { audit: 10, detection: 10, enforcement: 10 }
     };
     Object.keys(state.agentStates).forEach(id => {
       if (!state.agentStates[id].learningLog) state.agentStates[id].learningLog = [];
@@ -656,7 +686,133 @@ function createStoreApp({ dataDir }) {
   }
 
   // ===== 自我迭代机制 =====
-  function runSelfIteration() {
+  // ===== 监管员：全店巡查（纪检/质检，千问大模型独立驱动）=====
+  async function inspectStore() {
+    state.agentStates.inspector.status = 'working';
+    state.agentStates.inspector.currentTask = '全店巡查中';
+    state.agentStates.inspector.lastAction = new Date().toISOString();
+    state.agentStates.inspector.experience += 1;
+
+    const report = { timestamp: new Date().toISOString(), issues: [], actions: [], stats: {} };
+    const published = state.products.filter(p => p.status === 'published');
+    report.stats.totalProducts = published.length;
+
+    // 1. 查重：按商品名+文件大小双重检测
+    const nameMap = {};
+    const sizeMap = {};
+    const duplicates = [];
+    published.forEach(p => {
+      const key = (p.name || '').toLowerCase().trim();
+      if (nameMap[key]) duplicates.push({ product: p, reason: '名称重复', duplicateOf: nameMap[key] });
+      else nameMap[key] = p.name;
+      if (p.filePath) {
+        try {
+          const sz = fs.existsSync(p.filePath) ? fs.statSync(p.filePath).size : 0;
+          if (sz > 0 && sizeMap[sz]) duplicates.push({ product: p, reason: '文件大小相同疑似重复', duplicateOf: sizeMap[sz] });
+          else if (sz > 0) sizeMap[sz] = p.name;
+        } catch (e) {}
+      }
+    });
+    if (duplicates.length > 0) {
+      report.issues.push({ type: 'duplicate', count: duplicates.length, desc: `${duplicates.length}件疑似重复商品` });
+      // 自动下架重复商品（保留第一件）
+      let removed = 0;
+      duplicates.forEach(d => {
+        const idx = state.products.findIndex(p => p.productId === d.product.productId);
+        if (idx >= 0 && state.products[idx].status === 'published') {
+          state.products[idx].status = 'draft';
+          removed++;
+          report.actions.push(`监管员下架重复商品「${d.product.name}」（${d.reason}）`);
+        }
+      });
+      report.stats.duplicatesRemoved = removed;
+    }
+
+    // 2. 价格异常检查
+    const priceIssues = published.filter(p => p.price < 0.10 || p.price > 1.00);
+    if (priceIssues.length > 0) {
+      report.issues.push({ type: 'price_anomaly', count: priceIssues.length, desc: `${priceIssues.length}件商品价格超出$0.10-$1.00区间` });
+      priceIssues.forEach(p => {
+        const oldPrice = p.price;
+        p.price = Math.max(0.10, Math.min(1.00, p.price));
+        report.actions.push(`监管员修正「${p.name}」价格：$${oldPrice} → $${p.price}`);
+      });
+    }
+
+    // 3. 商品描述质量检查（描述太短或含乱码）
+    const descIssues = published.filter(p => {
+      const desc = (p.spec && p.spec.shortDesc) || '';
+      return desc.length < 5 || /[�]/.test(desc) || /undefined|null/i.test(desc);
+    });
+    if (descIssues.length > 0) {
+      report.issues.push({ type: 'poor_description', count: descIssues.length, desc: `${descIssues.length}件商品描述质量差` });
+      descIssues.slice(0, 10).forEach(p => {
+        if (p.spec) p.spec.shortDesc = `${p.name}，高质量3D资产，自带碰撞体，可直接导入引擎使用。`;
+        report.actions.push(`监管员优化「${p.name}」描述`);
+      });
+    }
+
+    // 4. 智能体怠工检查（超过1小时无动作）
+    const now = Date.now();
+    const idleAgents = [];
+    Object.keys(state.agentStates).forEach(id => {
+      if (id === 'inspector') return;
+      const a = state.agentStates[id];
+      if (a.lastAction) {
+        const inactive = (now - new Date(a.lastAction).getTime()) / 1000 / 60;
+        if (inactive > 60) idleAgents.push({ id, inactiveMin: Math.round(inactive) });
+      }
+    });
+    if (idleAgents.length > 0) {
+      report.issues.push({ type: 'agent_idle', count: idleAgents.length, desc: `${idleAgents.length}个智能体超过1小时无动作` });
+      idleAgents.forEach(a => {
+        state.agentStates[a.id].status = 'working';
+        state.agentStates[a.id].currentTask = '被监管员唤醒，恢复工作';
+        report.actions.push(`监管员唤醒怠工的${a.id}智能体（已闲置${a.inactiveMin}分钟）`);
+      });
+    }
+
+    // 5. 商品分类异常检查
+    const validCats = ['environment', 'characters', 'props', 'video', 'ui', 'audio', 'font', 'code', '3d', 'other'];
+    const catIssues = published.filter(p => !validCats.includes(p.category));
+    if (catIssues.length > 0) {
+      report.issues.push({ type: 'category_anomaly', count: catIssues.length, desc: `${catIssues.length}件商品分类异常` });
+      catIssues.forEach(p => { p.category = 'other'; report.actions.push(`监管员修正「${p.name}」分类为other`); });
+    }
+
+    report.stats.issuesFound = report.issues.length;
+    report.stats.actionsTaken = report.actions.length;
+
+    // 监管员用千问大模型做独立深度分析（与DeepSeek团队交叉验证，更客观）
+    try {
+      const summary = `商品总数${published.length}件，发现问题${report.issues.length}个：${report.issues.map(i => i.desc).join('；')}。已整改${report.actions.length}项。`;
+      const aiAdvice = await callAI('inspector',
+        `你是独立监管员，请基于以下巡查结果给出独立判断和改进建议：${summary}。商店还有哪些潜在风险？下一步重点巡查什么？回答简洁，分点列出。`,
+        `Fantasy3D商店当前状态：${published.length}件在售商品，7个智能体团队运转中。`
+      );
+      if (aiAdvice) {
+        report.aiAnalysis = aiAdvice;
+        report.actions.push(`千问监管员独立分析：${aiAdvice.substring(0, 200)}`);
+      }
+    } catch (e) { report.aiAnalysis = 'AI分析暂不可用：' + e.message; }
+
+    if (report.issues.length === 0) {
+      report.actions.push('监管员巡查完毕，全店无异常，运营健康');
+    }
+
+    state.agentStates.inspector.status = 'idle';
+    state.agentStates.inspector.currentTask = `巡查完成，发现${report.issues.length}个问题，整改${report.actions.length}项`;
+    agentLearn('inspector', `完成全店巡查，发现${report.issues.length}个问题，执行${report.actions.length}项整改`, 'audit');
+
+    if (!state.inspectionLog) state.inspectionLog = [];
+    state.inspectionLog.unshift(report);
+    if (state.inspectionLog.length > 50) state.inspectionLog = state.inspectionLog.slice(0, 50);
+    commit(state);
+
+    return report;
+  }
+
+  async function runSelfIteration() {
     state.consciousness.iteration += 1;
     const iterNum = state.consciousness.iteration;
     const actions = [];
@@ -683,6 +839,16 @@ function createStoreApp({ dataDir }) {
     if (underpriced.length > 0) problems.push({ type: 'underpriced', count: underpriced.length, desc: underpriced.length + '件商品定价过低' });
     actions.push('调研智能体发现 ' + problems.length + ' 个问题：' + problems.map(p => p.desc).join('；'));
     agentLearn('researcher', `完成市场分析，发现${problems.length}个问题，识别出品类缺口和定价异常`, 'insight');
+
+    // ===== 1.5 监管员：全店巡查（纪检/质检，千问独立驱动）=====
+    try {
+      const inspectResult = await inspectStore();
+      if (inspectResult.issues.length > 0) {
+        actions.push(`监管员巡查发现${inspectResult.issues.length}个问题，已整改${inspectResult.actions.length}项：${inspectResult.issues.map(i => i.desc).join('；')}`);
+      } else {
+        actions.push('监管员巡查完毕，全店无异常');
+      }
+    } catch (e) { actions.push('监管员巡查出错：' + e.message); }
 
     // ===== 2. 生产员：自动调整商品 =====
     state.agentStates.listing.status = 'working';
@@ -2309,13 +2475,22 @@ function createStoreApp({ dataDir }) {
   });
 
   // ===== 自我迭代 API =====
-  app.post('/api/store/iterate', (req, res) => {
-    const result = runSelfIteration();
+  app.post('/api/store/iterate', async (req, res) => {
+    const result = await runSelfIteration();
     res.status(201).json({ success: true, iteration: result });
   });
 
   app.get('/api/store/iterations', (req, res) => {
     res.json({ iterations: state.iterations.slice(-20).reverse() });
+  });
+
+  // ===== 监管员巡查 API =====
+  app.post('/api/store/inspect', async (req, res) => {
+    const result = await inspectStore();
+    res.status(201).json({ success: true, inspection: result });
+  });
+  app.get('/api/store/inspections', (req, res) => {
+    res.json({ inspections: (state.inspectionLog || []).slice(-20).reverse() });
   });
 
   // ===== 团队会议 API =====
@@ -2517,6 +2692,7 @@ function createStoreApp({ dataDir }) {
   app.locals.holdMeeting = holdTeamMeeting;
   app.locals.runRadar = scanOpportunities;
   app.locals.doPromotion = () => { const published = state.products.filter(p => p.status === 'published'); if (published.length > 0) { const product = published[Math.floor(Math.random() * published.length)]; const content = generatePromoContent(product); realPromotion(content, product); } };
+  app.locals.doInspect = inspectStore;
 
   return app;
 }
@@ -2576,17 +2752,26 @@ async function startServer({ port = 0, dataDir } = {}) {
     } catch (e) { console.error('[自治商店] 推广失败:', e.message); }
   }, 20 * 60 * 1000);
 
-  // 每30分钟自动开团队会议（6个智能体都发言）
+  // 每25分钟监管员全店巡查（纪检/质检，独立于其他智能体）
+  const inspectTimer = setInterval(() => {
+    try {
+      app.locals.doInspect && app.locals.doInspect();
+      console.log('[自治商店] 监管员巡查完成');
+    } catch (e) { console.error('[自治商店] 巡查失败:', e.message); }
+  }, 25 * 60 * 1000);
+
+  // 每30分钟自动开团队会议（7个智能体都发言）
   const meetingTimer = setInterval(() => {
     try {
       app.locals.holdMeeting && app.locals.holdMeeting();
-      console.log('[自治商店] 团队会议完成，6个智能体均已发言');
+      console.log('[自治商店] 团队会议完成，7个智能体均已发言');
     } catch (e) { console.error('[自治商店] 会议失败:', e.message); }
   }, 30 * 60 * 1000);
 
-  // 启动时立即执行一次扫描和会议
+  // 启动时立即执行一次扫描、巡查和会议
   setTimeout(() => {
     try { app.locals.scanLocal && app.locals.scanLocal(); } catch (e) {}
+    try { app.locals.doInspect && app.locals.doInspect(); } catch (e) {}
     try { app.locals.holdMeeting && app.locals.holdMeeting(); } catch (e) {}
   }, 3000);
 
@@ -2597,6 +2782,7 @@ async function startServer({ port = 0, dataDir } = {}) {
     clearInterval(radarTimer);
     clearInterval(meetingTimer);
     clearInterval(promoTimer);
+    clearInterval(inspectTimer);
     server.close(err => err ? reject(err) : resolve());
     server.closeAllConnections();
   }) };
