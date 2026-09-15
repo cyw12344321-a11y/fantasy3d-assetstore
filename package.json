@@ -12,16 +12,34 @@
     "build": "electron-builder --win nsis --x64",
     "build:dir": "electron-builder --win --x64 --dir"
   },
-  "dependencies": { "express": "5.2.1" },
-  "devDependencies": { "electron": "44.3.0", "electron-builder": "26.15.3" },
+  "dependencies": {
+    "express": "5.2.1",
+    "fbx2gltf": "^0.9.7-p1",
+    "obj2gltf": "^3.2.0"
+  },
+  "devDependencies": {
+    "electron": "44.3.0",
+    "electron-builder": "26.15.3"
+  },
   "build": {
     "appId": "com.fantasy3d.store",
     "productName": "Fantasy3D 资产商店",
     "artifactName": "Fantasy3D-Store-Setup-${version}.${ext}",
-    "directories": { "output": "dist" },
-    "files": ["electron-main.js", "server.js", "frontend/**/*", "package.json", "README.md"],
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron-main.js",
+      "server.js",
+      "frontend/**/*",
+      "package.json",
+      "README.md"
+    ],
     "asar": true,
-    "win": { "target": "nsis", "signAndEditExecutable": false },
+    "win": {
+      "target": "nsis",
+      "signAndEditExecutable": false
+    },
     "nsis": {
       "oneClick": false,
       "perMachine": false,

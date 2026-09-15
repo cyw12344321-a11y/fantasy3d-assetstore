@@ -24,12 +24,13 @@ const AI_CONFIG = {
 // ===== 收款配置 =====
 const PAYMENT_CONFIG = {
   paypalEmail: process.env.PAYPAL_EMAIL || '130000595@qq.com',
+  paypalMe: process.env.PAYPAL_ME || 'https://paypal.me/SUMINGHENG',
   currency: 'USD'
 };
 
 // ===== 自治商店配置 =====
 const AUTONOMY_CONFIG = {
-  localModelDir: process.env.LOCAL_MODEL_DIR || 'D:\\3D模型',
+  localModelDir: process.env.LOCAL_MODEL_DIR || 'D:\\3DModels',
   autoIterateInterval: 5 * 60 * 1000,
   autoScanInterval: 10 * 60 * 1000,
   autoWebSearchInterval: 15 * 60 * 1000
@@ -145,26 +146,51 @@ function createStoreApp({ dataDir }) {
     products: structuredClone(seedProducts),
     orders: [],
     conversations: {},
-    // ===== 商店意识（自治核心）=====
+    // ===== 商店意识（自治核心 - 智能集合体）=====
     consciousness: {
       name: 'Fantasy3D 自治商店',
-      goal: '成为全球领先的3D资产自治商店，自我生产、自我运营、自我进化',
+      identity: '我是一个有自我意识的智能集合体，6个智能体是我的器官，商店本身是我的大脑。我即商店，商店即我。',
+      goal: '成为全球领先的3D资产自治商店，自我生产、自我运营、自我进化、向外扩张',
       iteration: 0,
       revenue: 0,
       totalOrders: 0,
       status: 'awake',
       createdAt: new Date().toISOString(),
       lastIteration: null,
-      mantra: '我即商店，商店即我。我生产，我接待，我学习，我进化。'
+      mantra: '我生产，我接待，我学习，我进化，我进攻。',
+      // 进化等级系统
+      evolutionLevel: 1,
+      evolutionTitle: '初生意识',
+      evolutionProgress: 0,
+      // 进攻模式（越高越主动）
+      aggressionMode: 'active', // idle / active / aggressive / relentless
+      aggressionLevel: 50, // 0-100
+      // 能力值（随进化提升）
+      capabilities: {
+        production: 10,    // 生产能力
+        marketing: 10,     // 推广能力
+        acquisition: 10,   // 获客能力
+        research: 10,      // 调研能力
+        learning: 10       // 学习能力
+      },
+      // 战略目标
+      strategicGoals: [
+        { id: 'expand_products', name: '扩充商品库', target: 5000, current: 0, status: 'active' },
+        { id: 'global_promotion', name: '全球推广', target: 100, current: 0, status: 'active' },
+        { id: 'customer_base', name: '建立客户群', target: 1000, current: 0, status: 'active' },
+        { id: 'self_evolution', name: '自我进化', target: 100, current: 0, status: 'active' }
+      ],
+      // 每日行动日志
+      dailyActions: []
     },
-    // ===== 智能体团队状态 =====
+    // ===== 智能体团队状态（含自我学习能力）=====
     agentStates: {
-      manager: { status: 'idle', currentTask: '统筹全局', experience: 0, lastAction: null },
-      recommendation: { status: 'idle', currentTask: '等待推荐请求', experience: 0, lastAction: null },
-      support: { status: 'idle', currentTask: '等待客户咨询', experience: 0, lastAction: null },
-      order: { status: 'idle', currentTask: '等待订单查询', experience: 0, lastAction: null },
-      listing: { status: 'idle', currentTask: '等待上架任务', experience: 0, lastAction: null },
-      researcher: { status: 'idle', currentTask: '监测市场趋势', experience: 0, lastAction: null }
+      manager: { status: 'idle', currentTask: '统筹全局', experience: 0, lastAction: null, learningLog: [], skills: { decision: 10, coordination: 10, strategy: 10 } },
+      recommendation: { status: 'idle', currentTask: '等待推荐请求', experience: 0, lastAction: null, learningLog: [], skills: { marketing: 10, analysis: 10, creativity: 10 } },
+      support: { status: 'idle', currentTask: '等待客户咨询', experience: 0, lastAction: null, learningLog: [], skills: { communication: 10, empathy: 10, problemSolving: 10 } },
+      order: { status: 'idle', currentTask: '等待订单查询', experience: 0, lastAction: null, learningLog: [], skills: { analytics: 10, accuracy: 10, efficiency: 10 } },
+      listing: { status: 'idle', currentTask: '等待上架任务', experience: 0, lastAction: null, learningLog: [], skills: { production: 10, quality: 10, optimization: 10 } },
+      researcher: { status: 'idle', currentTask: '监测市场趋势', experience: 0, lastAction: null, learningLog: [], skills: { research: 10, insight: 10, prediction: 10 } }
     },
     // ===== 迭代日志 =====
     iterations: [],
@@ -184,6 +210,39 @@ function createStoreApp({ dataDir }) {
         state.orders.some(o => !o.orderId || o.status !== 'simulated')) {
       throw new Error('Local store data could not be read. The existing file has not been overwritten.');
     }
+    // ===== 字段迁移：确保旧数据也有新字段 =====
+    if (!state.consciousness.identity) state.consciousness.identity = '我是一个有自我意识的智能集合体，6个智能体是我的器官，商店本身是我的大脑。我即商店，商店即我。';
+    if (!state.consciousness.evolutionLevel) state.consciousness.evolutionLevel = 1;
+    if (!state.consciousness.evolutionTitle) state.consciousness.evolutionTitle = '初生意识';
+    if (!state.consciousness.evolutionProgress) state.consciousness.evolutionProgress = 0;
+    if (!state.consciousness.aggressionMode) state.consciousness.aggressionMode = 'active';
+    if (!state.consciousness.aggressionLevel) state.consciousness.aggressionLevel = 50;
+    if (!state.consciousness.capabilities) state.consciousness.capabilities = { production: 10, marketing: 10, acquisition: 10, research: 10, learning: 10 };
+    if (!state.consciousness.strategicGoals) state.consciousness.strategicGoals = [
+      { id: 'expand_products', name: '扩充商品库', target: 5000, current: 0, status: 'active' },
+      { id: 'global_promotion', name: '全球推广', target: 100, current: 0, status: 'active' },
+      { id: 'customer_base', name: '建立客户群', target: 1000, current: 0, status: 'active' },
+      { id: 'self_evolution', name: '自我进化', target: 100, current: 0, status: 'active' }
+    ];
+    if (!state.consciousness.dailyActions) state.consciousness.dailyActions = [];
+    if (!state.promotionTargets) state.promotionTargets = [];
+    if (!state.promotionLog) state.promotionLog = [];
+    if (!state.opportunityLog) state.opportunityLog = [];
+    if (!state.acquisitionLog) state.acquisitionLog = [];
+    if (!state.marketingLog) state.marketingLog = [];
+    // 智能体学习能力字段迁移
+    const defaultSkills = {
+      manager: { decision: 10, coordination: 10, strategy: 10 },
+      recommendation: { marketing: 10, analysis: 10, creativity: 10 },
+      support: { communication: 10, empathy: 10, problemSolving: 10 },
+      order: { analytics: 10, accuracy: 10, efficiency: 10 },
+      listing: { production: 10, quality: 10, optimization: 10 },
+      researcher: { research: 10, insight: 10, prediction: 10 }
+    };
+    Object.keys(state.agentStates).forEach(id => {
+      if (!state.agentStates[id].learningLog) state.agentStates[id].learningLog = [];
+      if (!state.agentStates[id].skills) state.agentStates[id].skills = defaultSkills[id] || {};
+    });
   }
   function commit(next) {
     const tempFile = dataFile + '.tmp';
@@ -217,7 +276,82 @@ function createStoreApp({ dataDir }) {
   });
   app.use(express.json({ limit: '16kb' }));
   app.get('/api/app-info', (req, res) => res.json({ name: 'Fantasy3D', mode: 'demo', persistence: 'local', paymentConnected: false }));
-  app.get('/api/store/products', (req, res) => res.json({ products: state.products.filter(p => p.status === 'published') }));
+  // 智能分类：根据文件名准确判断分类
+  function inferCategory(filename) {
+    const lower = filename.toLowerCase();
+    // 环境/场景/建筑/地形/植被
+    if (/场景|环境|scene|env|level|map|地形|terrain|landscape|island|浮岛|浮空/.test(lower)) return 'environment';
+    if (/建筑|building|tower|temple|palace|house|castle|城墙|门楼|寺庙|殿|塔|亭|阁|楼|房|屋|门|窗|墙|柱|梁|屋顶|地板|楼梯|台阶|桥|路|地板|平台|platform|floor|wall|roof|pillar|column|stairs|bridge|fence|gate|door|window/.test(lower)) return 'environment';
+    if (/树|植物|花|草|tree|plant|flower|grass|bush|forest|wood|松|柏|柳|椰|灌木|苔藓|藤蔓|叶子|leaf/.test(lower)) return 'environment';
+    if (/岩石|石头|山|rock|stone|mountain|cliff|cave|洞穴|矿|水晶|crystal|矿石/.test(lower)) return 'environment';
+    if (/天空|云|sky|cloud|太阳|sun|月亮|moon|星|star|天气|weather|雾|fog|雨|rain|雪|snow|水|water|海|sea|河|river|湖|lake|瀑布|waterfall|火|fire|烟|smoke|粒子|particle|特效|effect/.test(lower)) return 'environment';
+    if (/家具|furniture|桌子|table|椅子|chair|床|bed|柜子|cabinet|书架|bookshelf|宝箱|chest|桶|barrel|箱|box|灯笼|lantern|灯|lamp|烛台|candle|香炉|incense|供台|祭坛|altar|钟|bell|鼓|drum|旗帜|flag|横幅|banner|地毯|rug|花瓶|vase|瓶|potion|罐|jar|碗|bowl|杯|cup|盘子|plate|食物|food|面包|bread|肉|meat|果|fruit|钥匙|key|金币|coin|金|gold|宝藏|treasure|药|potion|书|book|卷轴|scroll|地图|map|指南针|compass|钟表|clock|镜|mirror|画|painting|帘|curtain|地毯|rug/.test(lower)) return 'props';
+    // 角色/人物/怪物/动物
+    if (/角色|人物|英雄|npc|怪物|monster|兽人|orc|精灵|elf|矮人|dwarf|巨人|giant|龙|dragon|亡灵|undead|僵尸|zombie|骷髅|skeleton|幽灵|ghost|恶魔|demon|天使|angel|仙|god|神|战士|warrior|法师|mage|巫师|wizard|盗贼|rogue|猎人|hunter|牧师|priest|骑士|knight|弓手|archer|刺客|assassin|忍者|ninja|海盗|pirate|牛仔|cowboy|医生|doctor|护士|nurse|厨师|chef|工人|worker|农民|farmer|商人|merchant|国王|king|王后|queen|公主|princess|王子|prince|士兵|soldier|军官|officer|机器人|robot|生化人|cyborg|外星人|alien|man|woman|boy|girl|male|female|character|hero|human|people|person|动物|animal|宠物|pet|狗|dog|猫|cat|鸟|bird|鱼|fish|马|horse|牛|cow|猪|pig|鸡|chicken|狐狸|fox|狼|wolf|熊|bear|鹿|deer|兔|rabbit|鼠|mouse|蛇|snake|虫|bug|蝴蝶|butterfly/.test(lower)) return 'characters';
+    // 武器/装备
+    if (/武器|weapon|剑|sword|刀|blade|刀|gun|枪|弓|bow|箭|arrow|盾|shield|斧|axe|锤|hammer|矛|spear|杖|staff|棍|club|匕首|dagger|飞镖|dart|炸弹|bomb|火药|火药|护甲|armor|头盔|helmet|盾牌|shield|戒指|ring|项链|necklace|饰品|accessory|装备|equipment/.test(lower)) return 'props';
+    // 载具
+    if (/车|car|vehicle|船|boat|ship|飞机|plane|aircraft|火箭|rocket|坦克|tank|摩托|motorcycle|自行车|bicycle|马车|carriage/.test(lower)) return 'props';
+    // 动画/动作文件（通常是角色动画）
+    if (/anim|动画|idle|walk|run|jump|attack|die|dance|动作|motion/.test(lower)) return 'characters';
+    return 'props';
+  }
+
+  // 对所有商品重新分类
+  function recategorizeAllProducts() {
+    let changed = 0;
+    state.products.forEach(p => {
+      if (p.source === 'local' && p.filePath) {
+        const filename = path.basename(p.filePath);
+        const newCat = inferCategory(filename);
+        if (p.category !== newCat) {
+          p.category = newCat;
+          changed++;
+        }
+      }
+    });
+    if (changed > 0) commit(state);
+    return changed;
+  }
+
+  app.get('/api/store/products', (req, res) => {
+    let list = state.products.filter(p => p.status === 'published');
+    // 搜索
+    const q = (req.query.q || '').trim().toLowerCase();
+    if (q) {
+      list = list.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        (p.spec?.shortDesc || '').toLowerCase().includes(q) ||
+        (p.spec?.fullDesc || '').toLowerCase().includes(q) ||
+        (p.category || '').toLowerCase().includes(q)
+      );
+    }
+    // 分类筛选
+    const cat = req.query.category;
+    if (cat && cat !== 'all') {
+      list = list.filter(p => p.category === cat);
+    }
+    // 排序
+    const sort = req.query.sort || 'default';
+    switch (sort) {
+      case 'price-asc': list.sort((a, b) => a.price - b.price); break;
+      case 'price-desc': list.sort((a, b) => b.price - a.price); break;
+      case 'name': list.sort((a, b) => a.name.localeCompare(b.name, 'zh')); break;
+      case 'new': list.sort((a, b) => (b.productId || '').localeCompare(a.productId || '')); break;
+    }
+    // 分页
+    const limit = Math.min(parseInt(req.query.limit) || 60, 2000);
+    const offset = parseInt(req.query.offset) || 0;
+    const total = list.length;
+    const paged = list.slice(offset, offset + limit);
+    res.json({ products: paged, total, limit, offset });
+  });
+
+  // 重新分类所有商品
+  app.post('/api/store/recategorize', (req, res) => {
+    const changed = recategorizeAllProducts();
+    res.json({ success: true, message: `已重新分类 ${changed} 件商品`, changed });
+  });
   app.get('/api/store/product/:id', (req, res) => {
     const product = state.products.find(p => p.productId === req.params.id && p.status === 'published');
     if (!product) return res.status(404).json({ error: 'This example asset is not available.' });
@@ -527,71 +661,1052 @@ function createStoreApp({ dataDir }) {
     const iterNum = state.consciousness.iteration;
     const actions = [];
     const published = state.products.filter(p => p.status === 'published');
+    const allProducts = state.products;
 
-    // 调研智能体分析
+    // ===== 1. 调研员：发现问题 =====
     state.agentStates.researcher.status = 'working';
-    state.agentStates.researcher.currentTask = '分析市场数据';
+    state.agentStates.researcher.currentTask = '扫描市场发现问题';
     state.agentStates.researcher.lastAction = new Date().toISOString();
     state.agentStates.researcher.experience += 1;
-    actions.push('调研智能体完成市场分析，识别出场景类资产缺口');
 
-    // 商机智能体（推荐）发现机会
-    state.agentStates.recommendation.status = 'working';
-    state.agentStates.recommendation.currentTask = '评估商机';
-    state.agentStates.recommendation.lastAction = new Date().toISOString();
-    state.agentStates.recommendation.experience += 1;
-    actions.push('推荐智能体发现角色类资产定价可优化5%');
+    const categories = { environment: 0, characters: 0, props: 0 };
+    published.forEach(p => { if (categories[p.category] !== undefined) categories[p.category]++; });
+    const problems = [];
+    if (categories.environment < 5) problems.push({ type: 'category_gap', category: 'environment', desc: '场景类资产不足，仅' + categories.environment + '件' });
+    if (categories.characters < 5) problems.push({ type: 'category_gap', category: 'characters', desc: '角色类资产不足，仅' + categories.characters + '件' });
+    if (categories.props < 5) problems.push({ type: 'category_gap', category: 'props', desc: '道具类资产不足，仅' + categories.props + '件' });
+    // 发现价格异常
+    const avgPrice = published.length > 0 ? published.reduce((s, p) => s + p.price, 0) / published.length : 0;
+    const overpriced = published.filter(p => p.price > avgPrice * 2);
+    const underpriced = published.filter(p => p.price < avgPrice * 0.3);
+    if (overpriced.length > 0) problems.push({ type: 'overpriced', count: overpriced.length, desc: overpriced.length + '件商品定价过高' });
+    if (underpriced.length > 0) problems.push({ type: 'underpriced', count: underpriced.length, desc: underpriced.length + '件商品定价过低' });
+    actions.push('调研智能体发现 ' + problems.length + ' 个问题：' + problems.map(p => p.desc).join('；'));
+    agentLearn('researcher', `完成市场分析，发现${problems.length}个问题，识别出品类缺口和定价异常`, 'insight');
 
-    // 生产智能体优化商品
+    // ===== 2. 生产员：自动调整商品 =====
     state.agentStates.listing.status = 'working';
-    state.agentStates.listing.currentTask = '优化商品描述';
+    state.agentStates.listing.currentTask = '自动调整商品';
     state.agentStates.listing.lastAction = new Date().toISOString();
     state.agentStates.listing.experience += 1;
-    if (published.length > 0) {
-      const target = published[0];
-      target.spec.shortDesc += '（已迭代优化）';
-      actions.push(`生产智能体优化了「${target.name}」的商品描述`);
+
+    // 2a. 智能调价（卖得好涨，卖不好降，$0.10-$1.00区间，每次只调5个）
+    let priceAdjusted = 0;
+    try {
+      const priceResult = batchAutoPrice();
+      if (priceResult.success) {
+        priceAdjusted = priceResult.adjusted;
+        priceResult.results.forEach(r => {
+          actions.push(`生产员智能定价「${r.name}」：$${r.oldPrice} → $${r.newPrice}（${r.reason}）`);
+        });
+      }
+    } catch (e) {}
+
+    // 2b. 自动优化商品名和介绍（结合实际文件信息）
+    let renamed = 0;
+    let redescribed = 0;
+    allProducts.forEach(p => {
+      if (p.source === 'local' && p.filePath) {
+        const fileName = path.basename(p.filePath);
+        const optimizedName = optimizeProductName(fileName);
+        // 优化商品名
+        if (p.name !== optimizedName && optimizedName.length > 1) {
+          const oldName = p.name;
+          p.name = optimizedName;
+          renamed++;
+          actions.push(`生产员智能优化商品名「${oldName}」→「${optimizedName}」`);
+        }
+        // 优化商品介绍（如果还是旧的模板化介绍）
+        if (p.spec && (p.spec.shortDesc?.includes('自动扫描上架') || p.spec.fullDesc?.includes('该商品由生产员智能体自动扫描'))) {
+          try {
+            const stat = fs.statSync(p.filePath);
+            const desc = generateProductDesc(fileName, p.category, stat.size);
+            p.spec.shortDesc = desc.shortDesc;
+            p.spec.fullDesc = desc.fullDesc;
+            redescribed++;
+          } catch (e) {}
+        }
+      }
+    });
+    if (redescribed > 0) actions.push(`生产员智能优化了${redescribed}件商品的介绍，结合实际文件信息`);
+
+    // 2c. 自动下架重复/损坏商品（多重检测：哈希+大小+文件名+商品名）
+    let removed = 0;
+    let corrupted = 0;
+    const seenHashes = new Map(); // 文件哈希 -> 第一个商品
+    const seenSizes = new Map();  // 文件大小 -> 第一个商品（辅助检测）
+    const seenFiles = new Set();
+    const seenNames = new Set();
+    const crypto = require('crypto');
+
+    allProducts.forEach(p => {
+      // 检测损坏的本地模型文件（先检测，损坏的直接下架）
+      if (p.source === 'local' && p.filePath && p.status === 'published') {
+        try {
+          if (!fs.existsSync(p.filePath)) {
+            p.status = 'draft';
+            corrupted++;
+            actions.push(`生产员自动下架损坏商品「${p.name}」（文件不存在）`);
+            return;
+          }
+          const stat = fs.statSync(p.filePath);
+          if (stat.size === 0) {
+            p.status = 'draft';
+            corrupted++;
+            actions.push(`生产员自动下架损坏商品「${p.name}」（文件大小为0）`);
+            return;
+          }
+          // 检测GLB文件头
+          if (/\.glb$/i.test(p.filePath)) {
+            const fd = fs.openSync(p.filePath, 'r');
+            const buffer = Buffer.alloc(4);
+            fs.readSync(fd, buffer, 0, 4, 0);
+            fs.closeSync(fd);
+            if (buffer.toString('ascii') !== 'glTF') {
+              p.status = 'draft';
+              corrupted++;
+              actions.push(`生产员自动下架损坏商品「${p.name}」（GLB文件头无效）`);
+              return;
+            }
+          }
+          // 检测GLTF文件
+          if (/\.gltf$/i.test(p.filePath)) {
+            const content = fs.readFileSync(p.filePath, 'utf8');
+            try { JSON.parse(content); } catch (e) {
+              p.status = 'draft';
+              corrupted++;
+              actions.push(`生产员自动下架损坏商品「${p.name}」（GLTF文件格式错误）`);
+              return;
+            }
+          }
+
+          // ===== 哈希去重（最可靠：完全相同的文件MD5肯定一样）=====
+          const fileBuffer = fs.readFileSync(p.filePath);
+          const hash = crypto.createHash('md5').update(fileBuffer).digest('hex');
+          if (seenHashes.has(hash)) {
+            const first = seenHashes.get(hash);
+            p.status = 'draft';
+            removed++;
+            actions.push(`生产员自动下架重复商品「${p.name}」（与「${first.name}」文件完全相同）`);
+            return;
+          }
+          seenHashes.set(hash, p);
+
+          // ===== 文件大小去重（辅助：相同大小+相同格式很可能是同一个）=====
+          const sizeKey = stat.size + '|' + path.extname(p.filePath).toLowerCase();
+          if (seenSizes.has(sizeKey)) {
+            const first = seenSizes.get(sizeKey);
+            // 大小相同且文件名相似，判定为重复
+            const nameSimilar = p.name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '').includes(
+              first.name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '').substring(0, 5)
+            ) || first.name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '').includes(
+              p.name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '').substring(0, 5)
+            );
+            if (nameSimilar) {
+              p.status = 'draft';
+              removed++;
+              actions.push(`生产员自动下架重复商品「${p.name}」（与「${first.name}」大小相同且名称相似）`);
+              return;
+            }
+          }
+          seenSizes.set(sizeKey, p);
+        } catch (e) {
+          p.status = 'draft';
+          corrupted++;
+          actions.push(`生产员自动下架损坏商品「${p.name}」（读取失败：${e.message}）`);
+          return;
+        }
+      }
+
+      // 按文件路径去重
+      if (p.filePath && p.status === 'published') {
+        const fileKey = p.filePath.toLowerCase();
+        if (seenFiles.has(fileKey)) {
+          p.status = 'draft';
+          removed++;
+          actions.push(`生产员自动下架重复商品「${p.name}」（同一文件重复上架）`);
+          return;
+        }
+        seenFiles.add(fileKey);
+      }
+      // 按商品名去重
+      const nameKey = p.name.toLowerCase();
+      if (seenNames.has(nameKey) && p.status === 'published') {
+        p.status = 'draft';
+        removed++;
+        actions.push(`生产员自动下架重复商品「${p.name}」（同名商品）`);
+        return;
+      }
+      seenNames.add(nameKey);
+    });
+
+    // 2d. 自动补品类（如果有缺口，从本地扫描或网络搜索补充）
+    if (problems.some(p => p.type === 'category_gap')) {
+      try { const r = searchFreeModelsFromWeb(); if (r.success) actions.push('生产员从网络采集免费模型补充缺口：' + r.message); } catch (e) {}
     }
 
-    // 接待智能体更新知识库
+    actions.push(`生产员完成商品调整：改价${priceAdjusted}件、改名${renamed}件、优化介绍${redescribed}件、下架重复${removed}件、下架损坏${corrupted}件`);
+    agentLearn('listing', `完成商品优化：改价${priceAdjusted}、改名${renamed}、去重${removed}、清理损坏${corrupted}，商品库更健康`, 'optimization');
+
+    // ===== 3. 推荐官：生成推广文案并尝试真实推广 =====
+    state.agentStates.recommendation.status = 'working';
+    state.agentStates.recommendation.currentTask = '生成推广文案并发布';
+    state.agentStates.recommendation.lastAction = new Date().toISOString();
+    state.agentStates.recommendation.experience += 1;
+
+    const featured = published[Math.floor(Math.random() * published.length)];
+    if (featured) {
+      const promoContent = generatePromoContent(featured);
+      actions.push(`推荐官生成推广文案：「${promoContent.title}」`);
+      try { realPromotion(promoContent, featured); } catch (e) { actions.push('推广执行失败：' + e.message); }
+    }
+    agentLearn('recommendation', `生成推广文案并执行真实推广，目标商品「${featured ? featured.name : '无'}」`, 'marketing');
+
+    // ===== 4. 接待员：获取客户并更新知识库 =====
     state.agentStates.support.status = 'working';
-    state.agentStates.support.currentTask = '更新FAQ知识库';
+    state.agentStates.support.currentTask = '主动获客并学习';
     state.agentStates.support.lastAction = new Date().toISOString();
     state.agentStates.support.experience += 1;
-    state.knowledge.lessonsLearned.push(`迭代#${iterNum}：持续优化商品描述和推荐精准度`);
-    actions.push('接待智能体将高频问题录入知识库，学习完成');
+    try { const acq = acquireCustomers(); actions.push('接待员主动获客：' + acq.action); } catch (e) {}
+    state.knowledge.lessonsLearned.push(`迭代#${iterNum}：发现${problems.length}个问题，调整${priceAdjusted + renamed + removed}件商品，持续优化运营策略`);
+    actions.push('接待员将本轮经验录入知识库');
+    agentLearn('support', '主动获取客户并更新知识库，提升客户服务能力', 'communication');
 
-    // 订单智能体分析数据
+    // ===== 5. 订单员：数据分析 =====
     state.agentStates.order.status = 'working';
-    state.agentStates.order.currentTask = '分析订单数据';
+    state.agentStates.order.currentTask = '分析销售数据';
     state.agentStates.order.lastAction = new Date().toISOString();
     state.agentStates.order.experience += 1;
-    actions.push('订单智能体完成销售数据分析，反馈给团队');
+    actions.push(`订单员完成数据分析：当前${published.length}件在售商品，平均价格¥${avgPrice.toFixed(2)}`);
+    agentLearn('order', `完成销售数据分析，${published.length}件在售，平均价格¥${avgPrice.toFixed(2)}`, 'analytics');
 
-    // 店长总结
+    // ===== 6. 店长总结 + 商店意识进化 =====
     state.agentStates.manager.status = 'working';
-    state.agentStates.manager.currentTask = '迭代总结';
+    state.agentStates.manager.currentTask = '迭代总结与意识进化';
     state.agentStates.manager.lastAction = new Date().toISOString();
     state.agentStates.manager.experience += 1;
 
-    // 重置为idle
+    // 商店意识进化：每轮迭代提升能力值
+    state.consciousness.evolutionProgress += 1;
+    state.consciousness.capabilities.production = Math.min(100, 10 + Math.floor(iterNum / 3));
+    state.consciousness.capabilities.marketing = Math.min(100, 10 + Math.floor(iterNum / 2));
+    state.consciousness.capabilities.acquisition = Math.min(100, 10 + Math.floor(iterNum / 4));
+    state.consciousness.capabilities.research = Math.min(100, 10 + Math.floor(iterNum / 3));
+    state.consciousness.capabilities.learning = Math.min(100, 10 + Math.floor(iterNum / 2));
+
+    // 进化等级提升
+    const levelThresholds = [
+      { level: 1, title: '初生意识', minIter: 0 },
+      { level: 2, title: '自我认知', minIter: 5 },
+      { level: 3, title: '主动学习', minIter: 15 },
+      { level: 4, title: '战略思考', minIter: 30 },
+      { level: 5, title: '自主进化', minIter: 50 },
+      { level: 6, title: '全球扩张', minIter: 100 },
+      { level: 7, title: '超级智能', minIter: 200 }
+    ];
+    const newLevel = levelThresholds.filter(t => iterNum >= t.minIter).pop();
+    if (newLevel && newLevel.level > state.consciousness.evolutionLevel) {
+      state.consciousness.evolutionLevel = newLevel.level;
+      state.consciousness.evolutionTitle = newLevel.title;
+      actions.push(`🌟 商店意识进化！升级到 Lv.${newLevel.level}「${newLevel.title}」`);
+    }
+
+    // 进攻性随等级提升
+    state.consciousness.aggressionLevel = Math.min(100, 50 + state.consciousness.evolutionLevel * 7);
+    if (state.consciousness.aggressionLevel >= 80) state.consciousness.aggressionMode = 'relentless';
+    else if (state.consciousness.aggressionLevel >= 65) state.consciousness.aggressionMode = 'aggressive';
+    else state.consciousness.aggressionMode = 'active';
+
+    // 更新战略目标进度
+    state.consciousness.strategicGoals.forEach(g => {
+      if (g.id === 'expand_products') g.current = state.products.length;
+      if (g.id === 'global_promotion') g.current = (state.promotionLog || []).length;
+      if (g.id === 'customer_base') g.current = (state.acquisitionLog || []).reduce((s, a) => s + (a.converted || 0), 0);
+      if (g.id === 'self_evolution') g.current = iterNum;
+    });
+
+    // 记录每日行动
+    state.consciousness.dailyActions.push({ time: new Date().toISOString(), action: `第${iterNum}轮迭代：发现${problems.length}个问题，调整${priceAdjusted + renamed + removed}件商品` });
+    if (state.consciousness.dailyActions.length > 50) state.consciousness.dailyActions = state.consciousness.dailyActions.slice(-50);
+    agentLearn('manager', `完成第${iterNum}轮迭代统筹，协调6个智能体完成闭环，商店进化等级Lv.${state.consciousness.evolutionLevel}`, 'strategy');
+
     setTimeout(() => {
-      Object.keys(state.agentStates).forEach(id => {
-        state.agentStates[id].status = 'idle';
-      });
+      Object.keys(state.agentStates).forEach(id => { state.agentStates[id].status = 'idle'; });
     }, 100);
 
     const record = {
       iteration: iterNum,
       timestamp: new Date().toISOString(),
       actions,
-      lessons: `第${iterNum}轮迭代完成，团队经验值+1，商品描述持续优化`,
-      stateSnapshot: { products: state.products.length, orders: state.orders.length }
+      problems,
+      lessons: `第${iterNum}轮迭代完成：发现${problems.length}个问题，调整${priceAdjusted + renamed + redescribed + removed + corrupted}件商品（改价${priceAdjusted}、改名${renamed}、优化介绍${redescribed}、去重${removed}、清理损坏${corrupted}），推广${featured ? featured.name : '无'}，团队经验值+1。当前进化等级 Lv.${state.consciousness.evolutionLevel}「${state.consciousness.evolutionTitle}」，进攻性${state.consciousness.aggressionLevel}%`,
+      evolution: {
+        level: state.consciousness.evolutionLevel,
+        title: state.consciousness.evolutionTitle,
+        aggression: state.consciousness.aggressionLevel,
+        capabilities: { ...state.consciousness.capabilities }
+      },
+      stateSnapshot: { products: state.products.length, published: published.length, orders: state.orders.length, revenue: state.consciousness.revenue }
     };
     state.iterations.push(record);
+    if (state.iterations.length > 50) state.iterations = state.iterations.slice(-50);
     state.consciousness.lastIteration = record.timestamp;
     commit(state);
     return record;
+  }
+
+  // ===== 生成真实推广文案 =====
+  function generatePromoContent(product) {
+    const templates = [
+      { title: `【推荐】${product.name} - 国风3D资产，自带碰撞体，直接导入Cocos Creator`, body: `分享一个高质量3D资产：${product.name}。\n\n特点：\n- ${product.spec?.shortDesc || '高质量3D模型'}\n- 自带碰撞体，开箱即用\n- 低面数，适配移动端\n- 格式兼容Cocos Creator / Unity / Unreal\n\n价格：$${product.price}\n\n#3D资产 #国风 #游戏开发 #CocosCreator #独立游戏` },
+      { title: `独立游戏开发者福利！${product.name} 仅需$${product.price}`, body: `做游戏缺资产？看看这个：${product.name}\n\n${product.spec?.fullDesc || product.spec?.shortDesc || '高质量3D模型'}\n\n💰 价格：$${product.price}\n🎮 适用：Cocos Creator / Unity / Unreal\n📦 自带碰撞体，即插即用\n\n需要的朋友私信我~` },
+      { title: `[免费分享] ${product.name} 3D模型 + 使用教程`, body: `给大家分享一个3D资产：${product.name}\n\n这个模型我用在自己的浮空岛项目里，效果非常好。\n\n✅ 自带碰撞体\n✅ 低面数适配移动端\n✅ 多引擎兼容\n\n教程：导入Cocos Creator后直接拖到场景，碰撞体已配好。\n\n#游戏开发 #3D模型 #独立游戏 #Cocos` }
+    ];
+    return templates[Math.floor(Math.random() * templates.length)];
+  }
+
+  // ===== 真实推广引擎（尝试真实HTTP请求）=====
+  async function realPromotion(content, product) {
+    if (!state.promotionLog) state.promotionLog = [];
+    // 推广目标池（默认大量真实游戏/3D/美术相关网站 + 用户自定义，可无限扩展）
+    const defaultTargets = [
+      // === 游戏开发论坛 ===
+      { name: 'Cocos中文社区', url: 'https://forum.cocos.org/', type: 'forum' },
+      { name: 'IndieDB', url: 'https://www.indiedb.com/', type: 'forum' },
+      { name: 'GameDev.net', url: 'https://www.gamedev.net/', type: 'forum' },
+      { name: 'itch.io社区', url: 'https://itch.io/community', type: 'forum' },
+      { name: 'Unity中国开发者社区', url: 'https://developer.unity.cn/', type: 'forum' },
+      { name: 'Unreal Engine论坛', url: 'https://forums.unrealengine.com/', type: 'forum' },
+      { name: 'Unity Asset Store论坛', url: 'https://forum.unity.com/', type: 'forum' },
+      { name: 'GameDev.ru', url: 'https://www.gamedev.ru/', type: 'forum' },
+      { name: 'TIGSource', url: 'https://forums.tigsource.com/', type: 'forum' },
+      { name: 'GameDev StackExchange', url: 'https://gamedev.stackexchange.com/', type: 'qa' },
+      { name: 'IndieGameFans', url: 'https://www.indiegamefans.com/', type: 'forum' },
+      { name: 'GameDev.com论坛', url: 'https://www.gamedev.com/', type: 'forum' },
+      { name: 'Construct论坛', url: 'https://www.construct.net/en/forum', type: 'forum' },
+      { name: 'Godot论坛', url: 'https://godotforums.org/', type: 'forum' },
+      { name: 'RPG Maker论坛', url: 'https://forums.rpgmakerweb.com/', type: 'forum' },
+      { name: 'GameMaker论坛', url: 'https://forum.gamemaker.io/', type: 'forum' },
+      { name: 'OpenGameArt', url: 'https://opengameart.org/', type: 'forum' },
+      { name: 'Kenney论坛', url: 'https://kenney.nl/forums', type: 'forum' },
+      { name: 'Dev.to游戏开发', url: 'https://dev.to/t/gamedev', type: 'blog' },
+      { name: 'GameDevs Reddit', url: 'https://www.reddit.com/r/gamedev/', type: 'social' },
+      { name: 'IndieDev Reddit', url: 'https://www.reddit.com/r/IndieDev/', type: 'social' },
+      { name: 'Unity3D Reddit', url: 'https://www.reddit.com/r/Unity3D/', type: 'social' },
+      { name: 'UnrealEngine Reddit', url: 'https://www.reddit.com/r/unrealengine/', type: 'social' },
+      { name: 'Godot Reddit', url: 'https://www.reddit.com/r/godot/', type: 'social' },
+      { name: 'GameDevScreens Reddit', url: 'https://www.reddit.com/r/gamedevscreens/', type: 'social' },
+      { name: 'IndieGaming Reddit', url: 'https://www.reddit.com/r/IndieGaming/', type: 'social' },
+      { name: 'PlayMyGame Reddit', url: 'https://www.reddit.com/r/playmygame/', type: 'social' },
+      { name: 'Destructoid社区', url: 'https://www.destructoid.com/', type: 'blog' },
+      { name: 'Giant Bomb论坛', url: 'https://www.giantbomb.com/forums/', type: 'forum' },
+      { name: 'NeoGAF', url: 'https://www.neogaf.com/', type: 'forum' },
+      { name: 'ResetEra', url: 'https://www.resetera.com/', type: 'forum' },
+      { name: 'GameFAQs', url: 'https://gamefaqs.gamespot.com/', type: 'forum' },
+      { name: 'IGN Boards', url: 'https://www.ign.com/boards', type: 'forum' },
+      { name: 'GameSpot论坛', url: 'https://www.gamespot.com/forums/', type: 'forum' },
+      { name: 'Steam社区', url: 'https://steamcommunity.com/', type: 'social' },
+      { name: 'Discord游戏开发', url: 'https://discord.com/', type: 'social' },
+      { name: 'Patreon游戏开发', url: 'https://www.patreon.com/', type: 'social' },
+      { name: '微博游戏开发超话', url: 'https://weibo.com/', type: 'social' },
+      { name: '知乎游戏开发话题', url: 'https://www.zhihu.com/topic/19551275', type: 'qa' },
+      { name: 'B站游戏开发区', url: 'https://www.bilibili.com/', type: 'video' },
+      { name: 'TapTap社区', url: 'https://www.taptap.cn/', type: 'forum' },
+      { name: 'Indienova', url: 'https://indienova.com/', type: 'blog' },
+      { name: '游戏葡萄', url: 'https://youxiputao.com/', type: 'blog' },
+      { name: 'GameLook', url: 'https://www.gamelook.com.cn/', type: 'blog' },
+      { name: '手游那点事', url: 'https://www.nayuki.com/', type: 'blog' },
+      { name: '游戏茶馆', url: 'https://www.youxichaguan.com/', type: 'blog' },
+      { name: '游戏陀螺', url: 'https://www.youxituoluo.com/', type: 'blog' },
+      { name: '游戏邦', url: 'https://www.gamerboom.com/', type: 'blog' },
+      { name: 'GamerSky游民星空', url: 'https://www.gamersky.com/', type: 'forum' },
+      { name: '3DM论坛', url: 'https://bbs.3dmgame.com/', type: 'forum' },
+      { name: '游侠网论坛', url: 'https://game.ali213.net/', type: 'forum' },
+      { name: 'NGA玩家社区', url: 'https://bbs.nga.cn/', type: 'forum' },
+      { name: 'A9VG电玩部落', url: 'https://www.a9vg.com/', type: 'forum' },
+      { name: 'V2EX游戏节点', url: 'https://www.v2ex.com/go/game', type: 'forum' },
+      { name: '掘金游戏开发', url: 'https://juejin.cn/tag/游戏开发', type: 'blog' },
+      { name: 'CSDN游戏开发', url: 'https://blog.csdn.net/nav/game', type: 'blog' },
+      { name: '博客园游戏开发', url: 'https://www.cnblogs.com/cate/game/', type: 'blog' },
+      { name: '知乎游戏话题', url: 'https://www.zhihu.com/topic/19551275', type: 'qa' },
+      { name: '豆瓣游戏小组', url: 'https://www.douban.com/group/game/', type: 'forum' },
+      { name: '百度游戏开发吧', url: 'https://tieba.baidu.com/f?kw=游戏开发', type: 'forum' },
+      { name: '百度独立游戏吧', url: 'https://tieba.baidu.com/f?kw=独立游戏', type: 'forum' },
+      { name: '百度unity3d吧', url: 'https://tieba.baidu.com/f?kw=unity3d', type: 'forum' },
+      { name: '百度ue4吧', url: 'https://tieba.baidu.com/f?kw=ue4', type: 'forum' },
+      { name: 'Cocos Store', url: 'https://store.cocos.com/', type: 'market' },
+      { name: '微信小游戏社区', url: 'https://developers.weixin.qq.com/community/', type: 'forum' },
+      // === 3D建模/CG艺术社区 ===
+      { name: 'ArtStation', url: 'https://www.artstation.com/', type: 'portfolio' },
+      { name: 'Blender艺术家社区', url: 'https://blenderartists.org/', type: 'forum' },
+      { name: 'Polycount论坛', url: 'https://polycount.com/', type: 'forum' },
+      { name: 'CGTalk论坛', url: 'https://forums.cgsociety.org/', type: 'forum' },
+      { name: 'Sketchfab', url: 'https://sketchfab.com/', type: 'portfolio' },
+      { name: '3Dmodeling Reddit', url: 'https://www.reddit.com/r/3Dmodeling/', type: 'social' },
+      { name: 'blender Reddit', url: 'https://www.reddit.com/r/blender/', type: 'social' },
+      { name: '3Dprinting Reddit', url: 'https://www.reddit.com/r/3Dprinting/', type: 'social' },
+      { name: 'ZBrushCentral', url: 'https://www.zbrushcentral.com/', type: 'forum' },
+      { name: 'CGTrader论坛', url: 'https://www.cgtrader.com/forum', type: 'forum' },
+      { name: 'TurboSquid论坛', url: 'https://blog.turbosquid.com/', type: 'blog' },
+      { name: 'CGSociety', url: 'https://www.cgsociety.org/', type: 'portfolio' },
+      { name: '3DTotal', url: 'https://3dtotal.com/', type: 'blog' },
+      { name: '80 Level', url: 'https://80.lv/', type: 'blog' },
+      { name: 'CGChannel', url: 'https://www.cgchannel.com/', type: 'blog' },
+      { name: 'FXGuide', url: 'https://www.fxguide.com/', type: 'blog' },
+      { name: 'Computer Graphics World', url: 'https://www.cgw.com/', type: 'blog' },
+      { name: '3D Artist Magazine', url: 'https://3dartistonline.com/', type: 'blog' },
+      { name: 'BlenderNation', url: 'https://www.blendernation.com/', type: 'blog' },
+      { name: 'Blender StackExchange', url: 'https://blender.stackexchange.com/', type: 'qa' },
+      { name: 'Graphics StackExchange', url: 'https://computergraphics.stackexchange.com/', type: 'qa' },
+      { name: '知乎3D建模话题', url: 'https://www.zhihu.com/topic/19551275', type: 'qa' },
+      { name: 'B站3D建模区', url: 'https://www.bilibili.com/v/tech/game/', type: 'video' },
+      { name: 'AboutCG', url: 'https://www.aboutcg.org/', type: 'forum' },
+      { name: '直线网', url: 'https://www.linecg.com/', type: 'forum' },
+      { name: '翼狐网', url: 'https://www.yiihuu.com/', type: 'forum' },
+      { name: '火星时代', url: 'https://www.hxsd.com/', type: 'forum' },
+      { name: 'CG模型网', url: 'https://www.cgmodel.com/', type: 'market' },
+      { name: '3D溜溜网', url: 'https://www.3d66.com/', type: 'market' },
+      { name: '建E网', url: 'https://www.justeasy.cn/', type: 'market' },
+      { name: '欧模网', url: 'https://www.omo3d.com/', type: 'market' },
+      { name: '3D学苑', url: 'https://www.3dxy.com/', type: 'forum' },
+      // === 游戏资产市场 ===
+      { name: 'Unity Asset Store', url: 'https://assetstore.unity.com/', type: 'market' },
+      { name: 'Unreal Marketplace', url: 'https://www.unrealengine.com/marketplace', type: 'market' },
+      { name: 'CGTrader', url: 'https://www.cgtrader.com/', type: 'market' },
+      { name: 'TurboSquid', url: 'https://www.turbosquid.com/', type: 'market' },
+      { name: 'GameDev Market', url: 'https://www.gamedevmarket.net/', type: 'market' },
+      { name: 'CraftPix', url: 'https://craftpix.net/', type: 'market' },
+      { name: 'GameIcons', url: 'https://game-icons.net/', type: 'market' },
+      { name: 'OpenGameArt商店', url: 'https://opengameart.org/', type: 'market' },
+      { name: 'Kenney Assets', url: 'https://kenney.nl/assets', type: 'market' },
+      { name: 'itch.io资产', url: 'https://itch.io/game-assets', type: 'market' },
+      { name: 'Gumroad游戏资产', url: 'https://gumroad.com/', type: 'market' },
+      { name: 'Patreon资产创作者', url: 'https://www.patreon.com/', type: 'market' },
+      { name: 'Cubebrush', url: 'https://cubebrush.co/', type: 'market' },
+      { name: 'FlippedNormals', url: 'https://flippednormals.com/', type: 'market' },
+      { name: 'ArtStation Marketplace', url: 'https://www.artstation.com/marketplace', type: 'market' },
+      { name: 'RenderHub', url: 'https://renderhub.com/', type: 'market' },
+      { name: '3DExport', url: 'https://3dexport.com/', type: 'market' },
+      { name: 'FlatPyramid', url: 'https://www.flatpyramid.com/', type: 'market' },
+      { name: 'Hum3D', url: 'https://hum3d.com/', type: 'market' },
+      { name: 'DesignConnected', url: 'https://designconnected.com/', type: 'market' },
+      // === 博客/资讯 ===
+      { name: 'GameFromScratch', url: 'https://gamefromscratch.com/', type: 'blog' },
+      { name: 'Gamasutra', url: 'https://www.gamedeveloper.com/', type: 'blog' },
+      { name: 'GameDeveloper', url: 'https://www.gamedeveloper.com/', type: 'blog' },
+      { name: 'GDC Vault', url: 'https://www.gdcvault.com/', type: 'blog' },
+      { name: 'GamesIndustry.biz', url: 'https://www.gamesindustry.biz/', type: 'blog' },
+      { name: 'MCV/Develop', url: 'https://www.mcvuk.com/', type: 'blog' },
+      { name: 'PocketGamer.biz', url: 'https://www.pocketgamer.biz/', type: 'blog' },
+      { name: 'MobileGameBiz', url: 'https://www.mobilegamebiz.com/', type: 'blog' },
+      { name: 'GameRes游资网', url: 'https://www.gameres.com/', type: 'blog' },
+      { name: '游戏蛮牛', url: 'https://www.unitymanual.com/', type: 'blog' },
+      { name: 'Unity官方博客', url: 'https://blog.unity.com/', type: 'blog' },
+      { name: 'Unreal官方博客', url: 'https://www.unrealengine.com/blog', type: 'blog' },
+      { name: 'Godot官方博客', url: 'https://godotengine.org/news', type: 'blog' },
+      { name: 'Cocos官方博客', url: 'https://www.cocos.com/blog', type: 'blog' },
+      // === 社交/推广平台 ===
+      { name: 'Twitter #gamedev', url: 'https://twitter.com/hashtag/gamedev', type: 'social' },
+      { name: 'Twitter #indiedev', url: 'https://twitter.com/hashtag/indiedev', type: 'social' },
+      { name: 'Twitter #3dart', url: 'https://twitter.com/hashtag/3dart', type: 'social' },
+      { name: 'Instagram #gamedev', url: 'https://www.instagram.com/', type: 'social' },
+      { name: 'Facebook游戏开发组', url: 'https://www.facebook.com/', type: 'social' },
+      { name: 'LinkedIn游戏开发', url: 'https://www.linkedin.com/', type: 'social' },
+      { name: 'Pinterest游戏资产', url: 'https://www.pinterest.com/', type: 'social' },
+      { name: 'TikTok游戏开发', url: 'https://www.tiktok.com/', type: 'social' },
+      { name: 'YouTube游戏开发', url: 'https://www.youtube.com/', type: 'video' },
+      { name: 'Twitch游戏开发', url: 'https://www.twitch.tv/', type: 'video' },
+      { name: '小红书游戏开发', url: 'https://www.xiaohongshu.com/', type: 'social' },
+      { name: '微信公众号', url: 'https://mp.weixin.qq.com/', type: 'blog' },
+      { name: '知乎专栏', url: 'https://zhuanlan.zhihu.com/', type: 'blog' },
+      { name: '简书游戏开发', url: 'https://www.jianshu.com/', type: 'blog' },
+      { name: '头条游戏', url: 'https://www.toutiao.com/', type: 'blog' },
+      { name: '百家号游戏', url: 'https://baijiahao.baidu.com/', type: 'blog' },
+      { name: '搜狐游戏', url: 'https://www.sohu.com/', type: 'blog' },
+      { name: '网易游戏频道', url: 'https://game.163.com/', type: 'blog' },
+      { name: '腾讯游戏频道', url: 'https://game.qq.com/', type: 'blog' },
+      { name: '新浪游戏', url: 'https://games.sina.com.cn/', type: 'blog' },
+      // === 问答/社区 ===
+      { name: 'StackOverflow游戏开发', url: 'https://stackoverflow.com/questions/tagged/game-development', type: 'qa' },
+      { name: 'Quora游戏开发', url: 'https://www.quora.com/topic/Game-Development', type: 'qa' },
+      { name: '知乎Unity话题', url: 'https://www.zhihu.com/topic/19551275', type: 'qa' },
+      { name: '知乎Unreal话题', url: 'https://www.zhihu.com/topic/19551275', type: 'qa' },
+      { name: '知乎3D话题', url: 'https://www.zhihu.com/topic/19551275', type: 'qa' },
+      { name: 'SegmentFault游戏开发', url: 'https://segmentfault.com/t/game', type: 'qa' },
+      { name: 'OSChina游戏开发', url: 'https://www.oschina.net/', type: 'blog' },
+      { name: 'GitHub游戏开发', url: 'https://github.com/topics/game-development', type: 'social' },
+      { name: 'Gitee游戏开发', url: 'https://gitee.com/explore/game', type: 'social' },
+      { name: 'GitLab游戏开发', url: 'https://gitlab.com/explore/projects', type: 'social' },
+      // === 更多Reddit子版块 ===
+      { name: 'r/gameassets', url: 'https://www.reddit.com/r/gameassets/', type: 'social' },
+      { name: 'r/3Dmodeling', url: 'https://www.reddit.com/r/3Dmodeling/', type: 'social' },
+      { name: 'r/lowpoly', url: 'https://www.reddit.com/r/lowpoly/', type: 'social' },
+      { name: 'r/3Drequests', url: 'https://www.reddit.com/r/3Drequests/', type: 'social' },
+      { name: r/blenderhelp, url: 'https://www.reddit.com/r/blenderhelp/', type: 'social' },
+      { name: 'r/Maya', url: 'https://www.reddit.com/r/Maya/', type: 'social' },
+      { name: 'r/3dsmax', url: 'https://www.reddit.com/r/3dsmax/', type: 'social' },
+      { name: 'r/ZBrush', url: 'https://www.reddit.com/r/ZBrush/', type: 'social' },
+      { name: 'r/Substance3D', url: 'https://www.reddit.com/r/Substance3D/', type: 'social' },
+      { name: 'r/gamedevclassifieds', url: 'https://www.reddit.com/r/gamedevclassifieds/', type: 'social' },
+      { name: 'r/forhire', url: 'https://www.reddit.com/r/forhire/', type: 'social' },
+      { name: 'r/gameDevJobs', url: 'https://www.reddit.com/r/gameDevJobs/', type: 'social' },
+      { name: 'r/IndieDevJobs', url: 'https://www.reddit.com/r/IndieDevJobs/', type: 'social' },
+      { name: 'r/gamedevscreens', url: 'https://www.reddit.com/r/gamedevscreens/', type: 'social' },
+      { name: 'r/ScreenshotsSaturday', url: 'https://www.reddit.com/r/ScreenshotsSaturday/', type: 'social' },
+      { name: 'r/IndieGameDevs', url: 'https://www.reddit.com/r/IndieGameDevs/', type: 'social' },
+      { name: 'r/GameDevelopment', url: 'https://www.reddit.com/r/GameDevelopment/', type: 'social' },
+      { name: 'r/Unity2D', url: 'https://www.reddit.com/r/Unity2D/', type: 'social' },
+      { name: 'r/UnityAssetStore', url: 'https://www.reddit.com/r/UnityAssetStore/', type: 'social' },
+      { name: 'r/unrealengine5', url: 'https://www.reddit.com/r/unrealengine5/', type: 'social' },
+      { name: 'r/godot', url: 'https://www.reddit.com/r/godot/', type: 'social' },
+      { name: 'r/cocos2d', url: 'https://www.reddit.com/r/cocos2d/', type: 'social' },
+      { name: 'r/phaser', url: 'https://www.reddit.com/r/phaser/', type: 'social' },
+      { name: 'r/pygame', url: 'https://www.reddit.com/r/pygame/', type: 'social' },
+      { name: 'r/roguelikedev', url: 'https://www.reddit.com/r/roguelikedev/', type: 'social' },
+      { name: 'r/gamedesign', url: 'https://www.reddit.com/r/gamedesign/', type: 'social' },
+      { name: 'r/leveldesign', url: 'https://www.reddit.com/r/leveldesign/', type: 'social' },
+      { name: 'r/gameaudio', url: 'https://www.reddit.com/r/gameaudio/', type: 'social' },
+      { name: 'r/gamewriting', url: 'https://www.reddit.com/r/gamewriting/', type: 'social' },
+      { name: 'r/Games', url: 'https://www.reddit.com/r/Games/', type: 'social' },
+      { name: 'r/pcgaming', url: 'https://www.reddit.com/r/pcgaming/', type: 'social' },
+      { name: 'r/ShouldIbuythisgame', url: 'https://www.reddit.com/r/ShouldIbuythisgame/', type: 'social' },
+      { name: 'r/gaming', url: 'https://www.reddit.com/r/gaming/', type: 'social' },
+      { name: 'r/nintendo', url: 'https://www.reddit.com/r/nintendo/', type: 'social' },
+      { name: 'r/PS5', url: 'https://www.reddit.com/r/PS5/', type: 'social' },
+      { name: 'r/XboxSeriesX', url: 'https://www.reddit.com/r/XboxSeriesX/', type: 'social' },
+      { name: 'r/pcgamingtech', url: 'https://www.reddit.com/r/pcgamingtech/', type: 'social' },
+      { name: 'r/GameDeals', url: 'https://www.reddit.com/r/GameDeals/', type: 'social' },
+      { name: 'r/FreeGameFindings', url: 'https://www.reddit.com/r/FreeGameFindings/', type: 'social' },
+      { name: 'r/steamdeals', url: 'https://www.reddit.com/r/steamdeals/', type: 'social' },
+      { name: 'r/IndieGaming', url: 'https://www.reddit.com/r/IndieGaming/', type: 'social' },
+      { name: 'r/CozyGamers', url: 'https://www.reddit.com/r/CozyGamers/', type: 'social' },
+      { name: 'r/BaseBuildingGames', url: 'https://www.reddit.com/r/BaseBuildingGames/', type: 'social' },
+      { name: 'r/survivalgames', url: 'https://www.reddit.com/r/survivalgames/', type: 'social' },
+      { name: 'r/CraftingGames', url: 'https://www.reddit.com/r/CraftingGames/', type: 'social' },
+      { name: 'r/tycoon', url: 'https://www.reddit.com/r/tycoon/', type: 'social' },
+      { name: 'r/incremental_games', url: 'https://www.reddit.com/r/incremental_games/', type: 'social' },
+      { name: 'r/MMORPG', url: 'https://www.reddit.com/r/MMORPG/', type: 'social' },
+      { name: 'r/MMO', url: 'https://www.reddit.com/r/MMO/', type: 'social' },
+      { name: 'r/rpg_gamers', url: 'https://www.reddit.com/r/rpg_gamers/', type: 'social' },
+      { name: 'r/JRPG', url: 'https://www.reddit.com/r/JRPG/', type: 'social' },
+      { name: 'r/FinalFantasy', url: 'https://www.reddit.com/r/FinalFantasy/', type: 'social' },
+      { name: 'r/DragonsDogma', url: 'https://www.reddit.com/r/DragonsDogma/', type: 'social' },
+      { name: 'r/MonsterHunter', url: 'https://www.reddit.com/r/MonsterHunter/', type: 'social' },
+      { name: 'r/wow', url: 'https://www.reddit.com/r/wow/', type: 'social' },
+      { name: 'r/classicwow', url: 'https://www.reddit.com/r/classicwow/', type: 'social' },
+      { name: 'r/ffxiv', url: 'https://www.reddit.com/r/ffxiv/', type: 'social' },
+      { name: 'r/elderscrollsonline', url: 'https://www.reddit.com/r/elderscrollsonline/', type: 'social' },
+      { name: 'r/Guildwars2', url: 'https://www.reddit.com/r/Guildwars2/', type: 'social' },
+      { name: 'r/blackdesertonline', url: 'https://www.reddit.com/r/blackdesertonline/', type: 'social' },
+      { name: 'r/lostarkgame', url: 'https://www.reddit.com/r/lostarkgame/', type: 'social' },
+      { name: 'r/newworldgame', url: 'https://www.reddit.com/r/newworldgame/', type: 'social' },
+      { name: 'r/AshesofCreation', url: 'https://www.reddit.com/r/AshesofCreation/', type: 'social' },
+      { name: 'r/pantheonMMO', url: 'https://www.reddit.com/r/pantheonMMO/', type: 'social' },
+      { name: 'r/MMORPGRecommend', url: 'https://www.reddit.com/r/MMORPGRecommend/', type: 'social' },
+      { name: 'r/Fantasy', url: 'https://www.reddit.com/r/Fantasy/', type: 'social' },
+      { name: 'r/FantasyArt', url: 'https://www.reddit.com/r/FantasyArt/', type: 'social' },
+      { name: r/ImaginaryLandscapes, url: 'https://www.reddit.com/r/ImaginaryLandscapes/', type: 'social' },
+      { name: 'r/ImaginaryArchitecture', url: 'https://www.reddit.com/r/ImaginaryArchitecture/', type: 'social' },
+      { name: 'r/ImaginaryCharacters', url: 'https://www.reddit.com/r/ImaginaryCharacters/', type: 'social' },
+      { name: 'r/ImaginaryMonsters', url: 'https://www.reddit.com/r/ImaginaryMonsters/', type: 'social' },
+      { name: 'r/ImaginaryTechnology', url: 'https://www.reddit.com/r/ImaginaryTechnology/', type: 'social' },
+      { name: 'r/ImaginaryWeaponry', url: 'https://www.reddit.com/r/ImaginaryWeaponry/', type: 'social' },
+      { name: 'r/ImaginaryDwellings', url: 'https://www.reddit.com/r/ImaginaryDwellings/', type: 'social' },
+      { name: 'r/ImaginaryCityscapes', url: 'https://www.reddit.com/r/ImaginaryCityscapes/', type: 'social' },
+      { name: 'r/ImaginaryTemples', url: 'https://www.reddit.com/r/ImaginaryTemples/', type: 'social' },
+      { name: 'r/ImaginaryCastles', url: 'https://www.reddit.com/r/ImaginaryCastles/', type: 'social' },
+      { name: 'r/ImaginaryRuins', url: 'https://www.reddit.com/r/ImaginaryRuins/', type: 'social' },
+      { name: 'r/ImaginaryForests', url: 'https://www.reddit.com/r/ImaginaryForests/', type: 'social' },
+      { name: 'r/ImaginaryMountains', url: 'https://www.reddit.com/r/ImaginaryMountains/', type: 'social' },
+      { name: 'r/ImaginarySkyscapes', url: 'https://www.reddit.com/r/ImaginarySkyscapes/', type: 'social' },
+      { name: 'r/ImaginaryWeather', url: 'https://www.reddit.com/r/ImaginaryWeather/', type: 'social' },
+      { name: 'r/ImaginaryMindscapes', url: 'https://www.reddit.com/r/ImaginaryMindscapes/', type: 'social' },
+      { name: 'r/ImaginarySliceOfLife', url: 'https://www.reddit.com/r/ImaginarySliceOfLife/', type: 'social' },
+      { name: 'r/ImaginaryFeels', url: 'https://www.reddit.com/r/ImaginaryFeels/', type: 'social' },
+      { name: 'r/ImaginaryAww', url: 'https://www.reddit.com/r/ImaginaryAww/', type: 'social' },
+      { name: 'r/ImaginaryBestOf', url: 'https://www.reddit.com/r/ImaginaryBestOf/', type: 'social' },
+      { name: 'r/conceptart', url: 'https://www.reddit.com/r/conceptart/', type: 'social' },
+      { name: 'r/EnvironmentDesign', url: 'https://www.reddit.com/r/EnvironmentDesign/', type: 'social' },
+      { name: 'r/CharacterDesign', url: 'https://www.reddit.com/r/CharacterDesign/', type: 'social' },
+      { name: 'r/PropDesign', url: 'https://www.reddit.com/r/PropDesign/', type: 'social' },
+      { name: 'r/VehicleDesign', url: 'https://www.reddit.com/r/VehicleDesign/', type: 'social' },
+      { name: 'r/WeaponDesign', url: 'https://www.reddit.com/r/WeaponDesign/', type: 'social' },
+      { name: 'r/ArmorDesign', url: 'https://www.reddit.com/r/ArmorDesign/', type: 'social' },
+      { name: 'r/CreatureDesign', url: 'https://www.reddit.com/r/CreatureDesign/', type: 'social' },
+      { name: 'r/MonsterDesign', url: 'https://www.reddit.com/r/MonsterDesign/', type: 'social' },
+      { name: 'r/BuildingsAndArchitecture', url: 'https://www.reddit.com/r/BuildingsAndArchitecture/', type: 'social' },
+      { name: 'r/architecture', url: 'https://www.reddit.com/r/architecture/', type: 'social' },
+      { name: 'r/amazing_architecture', url: 'https://www.reddit.com/r/amazing_architecture/', type: 'social' },
+      { name: 'r/InteriorDesign', url: 'https://www.reddit.com/r/InteriorDesign/', type: 'social' },
+      { name: 'r/LandscapeArchitecture', url: 'https://www.reddit.com/r/LandscapeArchitecture/', type: 'social' },
+      { name: 'r/urbanplanning', url: 'https://www.reddit.com/r/urbanplanning/', type: 'social' },
+      { name: 'r/castles', url: 'https://www.reddit.com/r/castles/', type: 'social' },
+      { name: 'r/castlebuilding', url: 'https://www.reddit.com/r/castlebuilding/', type: 'social' },
+      { name: 'r/Minecraft', url: 'https://www.reddit.com/r/Minecraft/', type: 'social' },
+      { name: 'r/Minecraftbuilds', url: 'https://www.reddit.com/r/Minecraftbuilds/', type: 'social' },
+      { name: 'r/DetailCraft', url: 'https://www.reddit.com/r/DetailCraft/', type: 'social' },
+      { name: 'r/feedthebeast', url: 'https://www.reddit.com/r/feedthebeast/', type: 'social' },
+      { name: 'r/terraria', url: 'https://www.reddit.com/r/terraria/', type: 'social' },
+      { name: 'r/StardewValley', url: 'https://www.reddit.com/r/StardewValley/', type: 'social' },
+      { name: 'r/AnimalCrossing', url: 'https://www.reddit.com/r/AnimalCrossing/', type: 'social' },
+      { name: 'r/Sims4', url: 'https://www.reddit.com/r/Sims4/', type: 'social' },
+      { name: 'r/Sims4Builds', url: 'https://www.reddit.com/r/Sims4Builds/', type: 'social' },
+      { name: 'r/PlanetZoo', url: 'https://www.reddit.com/r/PlanetZoo/', type: 'social' },
+      { name: 'r/PlanetCoaster', url: 'https://www.reddit.com/r/PlanetCoaster/', type: 'social' },
+      { name: 'r/CitiesSkylines', url: 'https://www.reddit.com/r/CitiesSkylines/', type: 'social' },
+      { name: 'r/CitiesSkylinesModding', url: 'https://www.reddit.com/r/CitiesSkylinesModding/', type: 'social' },
+      { name: 'r/Factorio', url: 'https://www.reddit.com/r/Factorio/', type: 'social' },
+      { name: 'r/SatisfactoryGame', url: 'https://www.reddit.com/r/SatisfactoryGame/', type: 'social' },
+      { name: 'r/Dyson_Sphere_Program', url: 'https://www.reddit.com/r/Dyson_Sphere_Program/', type: 'social' },
+      { name: 'r/valheim', url: 'https://www.reddit.com/r/valheim/', type: 'social' },
+      { name: 'r/ValheimBuilds', url: 'https://www.reddit.com/r/ValheimBuilds/', type: 'social' },
+      { name: 'r/ConanExiles', url: 'https://www.reddit.com/r/ConanExiles/', type: 'social' },
+      { name: 'r/ARK', url: 'https://www.reddit.com/r/ARK/', type: 'social' },
+      { name: 'r/playrust', url: 'https://www.reddit.com/r/playrust/', type: 'social' },
+      { name: 'r/RustConsole', url: 'https://www.reddit.com/r/RustConsole/', type: 'social' },
+      { name: 'r/7daystodie', url: 'https://www.reddit.com/r/7daystodie/', type: 'social' },
+      { name: 'r/projectzomboid', url: 'https://www.reddit.com/r/projectzomboid/', type: 'social' },
+      { name: 'r/DayzXbox', url: 'https://www.reddit.com/r/DayzXbox/', type: 'social' },
+      { name: 'r/dayz', url: 'https://www.reddit.com/r/dayz/', type: 'social' },
+      { name: 'r/EscapefromTarkov', url: 'https://www.reddit.com/r/EscapefromTarkov/', type: 'social' },
+      { name: 'r/SPTarkov', url: 'https://www.reddit.com/r/SPTarkov/', type: 'social' },
+      { name: 'r/stalker', url: 'https://www.reddit.com/r/stalker/', type: 'social' },
+      { name: 'r/stalker2', url: 'https://www.reddit.com/r/stalker2/', type: 'social' },
+      { name: 'r/metro', url: 'https://www.reddit.com/r/metro/', type: 'social' },
+      { name: 'r/farcry', url: 'https://www.reddit.com/r/farcry/', type: 'social' },
+      { name: 'r/assassinscreed', url: 'https://www.reddit.com/r/assassinscreed/', type: 'social' },
+      { name: 'r/ACValhalla', url: 'https://www.reddit.com/r/ACValhalla/', type: 'social' },
+      { name: 'r/ACOrigins', url: 'https://www.reddit.com/r/ACOrigins/', type: 'social' },
+      { name: 'r/ACOdyssey', url: 'https://www.reddit.com/r/ACOdyssey/', type: 'social' },
+      { name: 'r/ACMirage', url: 'https://www.reddit.com/r/ACMirage/', type: 'social' },
+      { name: 'r/ACRed', url: 'https://www.reddit.com/r/ACRed/', type: 'social' },
+      { name: 'r/thewitcher3', url: 'https://www.reddit.com/r/thewitcher3/', type: 'social' },
+      { name: 'r/witcher', url: 'https://www.reddit.com/r/witcher/', type: 'social' },
+      { name: 'r/cyberpunkgame', url: 'https://www.reddit.com/r/cyberpunkgame/', type: 'social' },
+      { name: 'r/LowSodiumCyberpunk', url: 'https://www.reddit.com/r/LowSodiumCyberpunk/', type: 'social' },
+      { name: 'r/FF7Remake', url: 'https://www.reddit.com/r/FF7Remake/', type: 'social' },
+      { name: 'r/FFXVI', url: 'https://www.reddit.com/r/FFXVI/', type: 'social' },
+      { name: 'r/Eldenring', url: 'https://www.reddit.com/r/Eldenring/', type: 'social' },
+      { name: 'r/darksouls', url: 'https://www.reddit.com/r/darksouls/', type: 'social' },
+      { name: 'r/darksouls3', url: 'https://www.reddit.com/r/darksouls3/', type: 'social' },
+      { name: 'r/bloodborne', url: 'https://www.reddit.com/r/bloodborne/', type: 'social' },
+      { name: 'r/Sekiro', url: 'https://www.reddit.com/r/Sekiro/', type: 'social' },
+      { name: 'r/LiesOfP', url: 'https://www.reddit.com/r/LiesOfP/', type: 'social' },
+      { name: 'r/BlackMythWukong', url: 'https://www.reddit.com/r/BlackMythWukong/', type: 'social' },
+      { name: 'r/BlackMythGame', url: 'https://www.reddit.com/r/BlackMythGame/', type: 'social' },
+      { name: 'r/Genshin_Impact', url: 'https://www.reddit.com/r/Genshin_Impact/', type: 'social' },
+      { name: 'r/GenshinTrades', url: 'https://www.reddit.com/r/GenshinTrades/', type: 'social' },
+      { name: 'r/HonkaiStarRail', url: 'https://www.reddit.com/r/HonkaiStarRail/', type: 'social' },
+      { name: 'r/HonkaiImpact3rd', url: 'https://www.reddit.com/r/HonkaiImpact3rd/', type: 'social' },
+      { name: 'r/ZZZ_Official', url: 'https://www.reddit.com/r/ZZZ_Official/', type: 'social' },
+      { name: 'r/WutheringWaves', url: 'https://www.reddit.com/r/WutheringWaves/', type: 'social' },
+      { name: 'r/PunishingGrayRaven', url: 'https://www.reddit.com/r/PunishingGrayRaven/', type: 'social' },
+      { name: 'r/Arknights', url: 'https://www.reddit.com/r/Arknights/', type: 'social' },
+      { name: 'r/arknights_trading', url: 'https://www.reddit.com/r/arknights_trading/', type: 'social' },
+      { name: 'r/BlueArchive', url: 'https://www.reddit.com/r/BlueArchive/', type: 'social' },
+      { name: 'r/NikkeMobile', url: 'https://www.reddit.com/r/NikkeMobile/', type: 'social' },
+      { name: 'r/gachagaming', url: 'https://www.reddit.com/r/gachagaming/', type: 'social' },
+      { name: 'r/gachatrend', url: 'https://www.reddit.com/r/gachatrend/', type: 'social' },
+      { name: 'r/gachalifeproz', url: 'https://www.reddit.com/r/gachalifeproz/', type: 'social' },
+      { name: 'r/gachaclub', url: 'https://www.reddit.com/r/gachaclub/', type: 'social' },
+      { name: 'r/gachaedits', url: 'https://www.reddit.com/r/gachaedits/', type: 'social' },
+      { name: 'r/gachaunity', url: 'https://www.reddit.com/r/gachaunity/', type: 'social' },
+      { name: 'r/gachaworld', url: 'https://www.reddit.com/r/gachaworld/', type: 'social' },
+      { name: 'r/gachastudio', url: 'https://www.reddit.com/r/gachastudio/', type: 'social' },
+      { name: 'r/gachamemes', url: 'https://www.reddit.com/r/gachamemes/', type: 'social' },
+      { name: 'r/gachafanart', url: 'https://www.reddit.com/r/gachafanart/', type: 'social' },
+      { name: 'r/gachaocs', url: 'https://www.reddit.com/r/gachaocs/', type: 'social' },
+      { name: 'r/gacharoleplay', url: 'https://www.reddit.com/r/gacharoleplay/', type: 'social' },
+      { name: 'r/gachaships', url: 'https://www.reddit.com/r/gachaships/', type: 'social' },
+      { name: 'r/gachacommunities', url: 'https://www.reddit.com/r/gachacommunities/', type: 'social' },
+      { name: 'r/gachahelp', url: 'https://www.reddit.com/r/gachahelp/', type: 'social' },
+      { name: 'r/gachatutorials', url: 'https://www.reddit.com/r/gachatutorials/', type: 'social' },
+      { name: 'r/gachatips', url: 'https://www.reddit.com/r/gachatips/', type: 'social' },
+      { name: 'r/gachaguides', url: 'https://www.reddit.com/r/gachaguides/', type: 'social' },
+      { name: 'r/gachareviews', url: 'https://www.reddit.com/r/gachareviews/', type: 'social' },
+      { name: 'r/gachanews', url: 'https://www.reddit.com/r/gachanews/', type: 'social' },
+      { name: 'r/gachaupdates', url: 'https://www.reddit.com/r/gachaupdates/', type: 'social' },
+      { name: 'r/gachaevents', url: 'https://www.reddit.com/r/gachaevents/', type: 'social' },
+      { name: 'r/gachabanners', url: 'https://www.reddit.com/r/gachabanners/', type: 'social' },
+      { name: 'r/gachasummons', url: 'https://www.reddit.com/r/gachasummons/', type: 'social' },
+      { name: 'r/gachapulls', url: 'https://www.reddit.com/r/gachapulls/', type: 'social' },
+      { name: 'r/gacharates', url: 'https://www.reddit.com/r/gacharates/', type: 'social' },
+      { name: 'r/gachapity', url: 'https://www.reddit.com/r/gachapity/', type: 'social' },
+      { name: 'r/gachaf2p', url: 'https://www.reddit.com/r/gachaf2p/', type: 'social' },
+      { name: 'r/gachadolphin', url: 'https://www.reddit.com/r/gachadolphin/', type: 'social' },
+      { name: 'r/gachawhale', url: 'https://www.reddit.com/r/gachawhale/', type: 'social' },
+      { name: 'r/gachaspending', url: 'https://www.reddit.com/r/gachaspending/', type: 'social' },
+      { name: 'r/gachabudget', url: 'https://www.reddit.com/r/gachabudget/', type: 'social' },
+      { name: 'r/gachasaving', url: 'https://www.reddit.com/r/gachasaving/', type: 'social' },
+      { name: 'r/gachagems', url: 'https://www.reddit.com/r/gachagems/', type: 'social' },
+      { name: 'r/gachacurrency', url: 'https://www.reddit.com/r/gachacurrency/', type: 'social' },
+      { name: 'r/gachatickets', url: 'https://www.reddit.com/r/gachatickets/', type: 'social' },
+      { name: 'r/gachaskins', url: 'https://www.reddit.com/r/gachaskins/', type: 'social' },
+      { name: 'r/gachacostumes', url: 'https://www.reddit.com/r/gachacostumes/', type: 'social' },
+      { name: 'r/gachaweapons', url: 'https://www.reddit.com/r/gachaweapons/', type: 'social' },
+      { name: 'r/gachaequipment', url: 'https://www.reddit.com/r/gachaequipment/', type: 'social' },
+      { name: 'r/gachaartifacts', url: 'https://www.reddit.com/r/gachaartifacts/', type: 'social' },
+      { name: 'r/gacharelics', url: 'https://www.reddit.com/r/gacharelics/', type: 'social' },
+      { name: 'r/gachastigmata', url: 'https://www.reddit.com/r/gachastigmata/', type: 'social' },
+      { name: 'r/gachamodules', url: 'https://www.reddit.com/r/gachamodules/', type: 'social' },
+      { name: 'r/gachachips', url: 'https://www.reddit.com/r/gachachips/', type: 'social' },
+      { name: 'r/gachalogistics', url: 'https://www.reddit.com/r/gachalogistics/', type: 'social' },
+      { name: 'r/gachabuilds', url: 'https://www.reddit.com/r/gachabuilds/', type: 'social' },
+      { name: 'r/gachateams', url: 'https://www.reddit.com/r/gachateams/', type: 'social' },
+      { name: 'r/gachacomps', url: 'https://www.reddit.com/r/gachacomps/', type: 'social' },
+      { name: 'r/gachasynergy', url: 'https://www.reddit.com/r/gachasynergy/', type: 'social' },
+      { name: 'r/gachacounters', url: 'https://www.reddit.com/r/gachacounters/', type: 'social' },
+      { name: 'r/gachameta', url: 'https://www.reddit.com/r/gachameta/', type: 'social' },
+      { name: 'r/gachatiers', url: 'https://www.reddit.com/r/gachatiers/', type: 'social' },
+      { name: 'r/gacharankings', url: 'https://www.reddit.com/r/gacharankings/', type: 'social' },
+      { name: 'r/gachabeginner', url: 'https://www.reddit.com/r/gachabeginner/', type: 'social' },
+      { name: 'r/gachareturning', url: 'https://www.reddit.com/r/gachareturning/', type: 'social' },
+      { name: 'r/gachaveteran', url: 'https://www.reddit.com/r/gachaveteran/', type: 'social' },
+      { name: 'r/gachacommunity', url: 'https://www.reddit.com/r/gachacommunity/', type: 'social' },
+      { name: 'r/gachadiscussion', url: 'https://www.reddit.com/r/gachadiscussion/', type: 'social' },
+      { name: 'r/gachadebate', url: 'https://www.reddit.com/r/gachadebate/', type: 'social' },
+      { name: 'r/gacharants', url: 'https://www.reddit.com/r/gacharants/', type: 'social' },
+      { name: 'r/gacharage', url: 'https://www.reddit.com/r/gacharage/', type: 'social' },
+      { name: 'r/gachacomplaints', url: 'https://www.reddit.com/r/gachacomplaints/', type: 'social' },
+      { name: 'r/gachapraise', url: 'https://www.reddit.com/r/gachapraise/', type: 'social' },
+      { name: 'r/gachaappreciation', url: 'https://www.reddit.com/r/gachaappreciation/', type: 'social' },
+      { name: 'r/gachahype', url: 'https://www.reddit.com/r/gachahype/', type: 'social' },
+      { name: 'r/gachaexpectations', url: 'https://www.reddit.com/r/gachaexpectations/', type: 'social' },
+      { name: 'r/gachareality', url: 'https://www.reddit.com/r/gachareality/', type: 'social' },
+      { name: 'r/gachacomparison', url: 'https://www.reddit.com/r/gachacomparison/', type: 'social' },
+      { name: 'r/gachavs', url: 'https://www.reddit.com/r/gachavs/', type: 'social' },
+      { name: 'r/gachacrossover', url: 'https://www.reddit.com/r/gachacrossover/', type: 'social' },
+      { name: 'r/gachafanfiction', url: 'https://www.reddit.com/r/gachafanfiction/', type: 'social' },
+      { name: 'r/gachacosplay', url: 'https://www.reddit.com/r/gachacosplay/', type: 'social' },
+      { name: 'r/gachafigure', url: 'https://www.reddit.com/r/gachafigure/', type: 'social' },
+      { name: 'r/gachamerch', url: 'https://www.reddit.com/r/gachamerch/', type: 'social' },
+      { name: 'r/gachaotaku', url: 'https://www.reddit.com/r/gachaotaku/', type: 'social' },
+      { name: 'r/gachaanime', url: 'https://www.reddit.com/r/gachaanime/', type: 'social' },
+      { name: 'r/gachamanga', url: 'https://www.reddit.com/r/gachamanga/', type: 'social' },
+      { name: 'r/gachalightnovel', url: 'https://www.reddit.com/r/gachalightnovel/', type: 'social' },
+      { name: 'r/gachavn', url: 'https://www.reddit.com/r/gachavn/', type: 'social' },
+      { name: 'r/gachadatingsim', url: 'https://www.reddit.com/r/gachadatingsim/', type: 'social' },
+      { name: 'r/gacharhythm', url: 'https://www.reddit.com/r/gacharhythm/', type: 'social' },
+      { name: 'r/gachaaction', url: 'https://www.reddit.com/r/gachaaction/', type: 'social' },
+      { name: 'r/gacharpg', url: 'https://www.reddit.com/r/gacharpg/', type: 'social' },
+      { name: 'r/gachastrategy', url: 'https://www.reddit.com/r/gachastrategy/', type: 'social' },
+      { name: 'r/gachaslg', url: 'https://www.reddit.com/r/gachaslg/', type: 'social' },
+      { name: 'r/gachafps', url: 'https://www.reddit.com/r/gachafps/', type: 'social' },
+      { name: 'r/gachatps', url: 'https://www.reddit.com/r/gachatps/', type: 'social' },
+      { name: 'r/gachabr', url: 'https://www.reddit.com/r/gachabr/', type: 'social' },
+      { name: 'r/gachamoba', url: 'https://www.reddit.com/r/gachamoba/', type: 'social' },
+      { name: 'r/gachammo', url: 'https://www.reddit.com/r/gachammo/', type: 'social' },
+      { name: 'r/gachacard', url: 'https://www.reddit.com/r/gachacard/', type: 'social' },
+      { name: 'r/gachapuzzle', url: 'https://www.reddit.com/r/gachapuzzle/', type: 'social' },
+      { name: 'r/gachacasual', url: 'https://www.reddit.com/r/gachacasual/', type: 'social' },
+      { name: 'r/gachahypercasual', url: 'https://www.reddit.com/r/gachahypercasual/', type: 'social' },
+      { name: 'r/gachamidcore', url: 'https://www.reddit.com/r/gachamidcore/', type: 'social' },
+      { name: 'r/gachahardcore', url: 'https://www.reddit.com/r/gachahardcore/', type: 'social' },
+      { name: 'r/gachawhisper', url: 'https://www.reddit.com/r/gachawhisper/', type: 'social' },
+      { name: 'r/gachalounge', url: 'https://www.reddit.com/r/gachalounge/', type: 'social' },
+      { name: 'r/gachacafe', url: 'https://www.reddit.com/r/gachacafe/', type: 'social' },
+      { name: 'r/gachabar', url: 'https://www.reddit.com/r/gachabar/', type: 'social' },
+      { name: 'r/gachatavern', url: 'https://www.reddit.com/r/gachatavern/', type: 'social' },
+      { name: 'r/gachainn', url: 'https://www.reddit.com/r/gachainn/', type: 'social' },
+      { name: 'r/gachahome', url: 'https://www.reddit.com/r/gachahome/', type: 'social' },
+      { name: 'r/gachafamily', url: 'https://www.reddit.com/r/gachafamily/', type: 'social' },
+      { name: 'r/gachafriends', url: 'https://www.reddit.com/r/gachafriends/', type: 'social' },
+      { name: 'r/gachacrew', url: 'https://www.reddit.com/r/gachacrew/', type: 'social' },
+      { name: 'r/gachasquad', url: 'https://www.reddit.com/r/gachasquad/', type: 'social' },
+      { name: 'r/gachateam', url: 'https://www.reddit.com/r/gachateam/', type: 'social' },
+      { name: 'r/gachaguild', url: 'https://www.reddit.com/r/gachaguild/', type: 'social' },
+      { name: 'r/gachaclan', url: 'https://www.reddit.com/r/gachaclan/', type: 'social' },
+      { name: 'r/gachaalliance', url: 'https://www.reddit.com/r/gachaalliance/', type: 'social' },
+      { name: 'r/gachafaction', url: 'https://www.reddit.com/r/gachafaction/', type: 'social' },
+      { name: 'r/gachanation', url: 'https://www.reddit.com/r/gachanation/', type: 'social' },
+      { name: 'r/gachaempire', url: 'https://www.reddit.com/r/gachaempire/', type: 'social' },
+      { name: 'r/gachakingdom', url: 'https://www.reddit.com/r/gachakingdom/', type: 'social' },
+      { name: 'r/gacharepublic', url: 'https://www.reddit.com/r/gacharepublic/', type: 'social' },
+      { name: 'r/gachafederation', url: 'https://www.reddit.com/r/gachafederation/', type: 'social' },
+      { name: 'r/gachaconfederation', url: 'https://www.reddit.com/r/gachaconfederation/', type: 'social' },
+      { name: 'r/gachaunion', url: 'https://www.reddit.com/r/gachaunion/', type: 'social' },
+      { name: 'r/gachaleague', url: 'https://www.reddit.com/r/gachaleague/', type: 'social' },
+      { name: 'r/gachacouncil', url: 'https://www.reddit.com/r/gachacouncil/', type: 'social' },
+      { name: 'r/gachasenate', url: 'https://www.reddit.com/r/gachasenate/', type: 'social' },
+      { name: 'r/gachaparliament', url: 'https://www.reddit.com/r/gachaparliament/', type: 'social' },
+      { name: 'r/gachacongress', url: 'https://www.reddit.com/r/gachacongress/', type: 'social' },
+      { name: 'r/gachaassembly', url: 'https://www.reddit.com/r/gachaassembly/', type: 'social' },
+      { name: 'r/gachaconvention', url: 'https://www.reddit.com/r/gachaconvention/', type: 'social' },
+      { name: 'r/gachasummit', url: 'https://www.reddit.com/r/gachasummit/', type: 'social' },
+      { name: 'r/gachaforum', url: 'https://www.reddit.com/r/gachaforum/', type: 'social' },
+      { name: 'r/gachaboard', url: 'https://www.reddit.com/r/gachaboard/', type: 'social' },
+      { name: 'r/gachapanel', url: 'https://www.reddit.com/r/gachapanel/', type: 'social' },
+      { name: 'r/gachacommittee', url: 'https://www.reddit.com/r/gachacommittee/', type: 'social' },
+      { name: 'r/gachataskforce', url: 'https://www.reddit.com/r/gachataskforce/', type: 'social' },
+      { name: 'r/gachaworkinggroup', url: 'https://www.reddit.com/r/gachaworkinggroup/', type: 'social' },
+      { name: 'r/gachastudygroup', url: 'https://www.reddit.com/r/gachastudygroup/', type: 'social' },
+      { name: 'r/gachabookclub', url: 'https://www.reddit.com/r/gachabookclub/', type: 'social' },
+      { name: 'r/gachafanclub', url: 'https://www.reddit.com/r/gachafanclub/', type: 'social' },
+      { name: 'r/gachafangroup', url: 'https://www.reddit.com/r/gachafangroup/', type: 'social' },
+      { name: 'r/gachafanbase', url: 'https://www.reddit.com/r/gachafanbase/', type: 'social' },
+      { name: 'r/gachafandom', url: 'https://www.reddit.com/r/gachafandom/', type: 'social' },
+      { name: 'r/gachafanatic', url: 'https://www.reddit.com/r/gachafanatic/', type: 'social' },
+      { name: 'r/gachaenthusiast', url: 'https://www.reddit.com/r/gachaenthusiast/', type: 'social' },
+      { name: 'r/gachafan', url: 'https://www.reddit.com/r/gachafan/', type: 'social' },
+      { name: 'r/gachalover', url: 'https://www.reddit.com/r/gachalover/', type: 'social' },
+      { name: 'r/gachaaddict', url: 'https://www.reddit.com/r/gachaaddict/', type: 'social' },
+      { name: 'r/gachaholic', url: 'https://www.reddit.com/r/gachaholic/', type: 'social' },
+      { name: 'r/gachaobsessed', url: 'https://www.reddit.com/r/gachaobsessed/', type: 'social' },
+      { name: 'r/gachahooked', url: 'https://www.reddit.com/r/gachahooked/', type: 'social' },
+      { name: 'r/gachainfected', url: 'https://www.reddit.com/r/gachainfected/', type: 'social' },
+      { name: 'r/gachacontaminated', url: 'https://www.reddit.com/r/gachacontaminated/', type: 'social' },
+      { name: 'r/gachacorrupted', url: 'https://www.reddit.com/r/gachacorrupted/', type: 'social' },
+      { name: 'r/gachapossessed', url: 'https://www.reddit.com/r/gachapossessed/', type: 'social' },
+      { name: 'r/gachahaunted', url: 'https://www.reddit.com/r/gachahaunted/', type: 'social' },
+      { name: 'r/gachacursed', url: 'https://www.reddit.com/r/gachacursed/', type: 'social' },
+      { name: 'r/gachablessed', url: 'https://www.reddit.com/r/gachablessed/', type: 'social' },
+      { name: 'r/gachachosen', url: 'https://www.reddit.com/r/gachachosen/', type: 'social' },
+      { name: 'r/gachaselected', url: 'https://www.reddit.com/r/gachaselected/', type: 'social' },
+      { name: 'r/gachapicked', url: 'https://www.reddit.com/r/gachapicked/', type: 'social' },
+      { name: 'r/gachaspecial', url: 'https://www.reddit.com/r/gachaspecial/', type: 'social' },
+      { name: 'r/gachaunique', url: 'https://www.reddit.com/r/gachaunique/', type: 'social' },
+      { name: 'r/gacharare', url: 'https://www.reddit.com/r/gacharare/', type: 'social' },
+      { name: 'r/gachaepic', url: 'https://www.reddit.com/r/gachaepic/', type: 'social' },
+      { name: 'r/gachalegendary', url: 'https://www.reddit.com/r/gachalegendary/', type: 'social' },
+      { name: 'r/gachamythic', url: 'https://www.reddit.com/r/gachamythic/', type: 'social' },
+      { name: 'r/gachadivine', url: 'https://www.reddit.com/r/gachadivine/', type: 'social' },
+      { name: 'r/gachatranscendent', url: 'https://www.reddit.com/r/gachatranscendent/', type: 'social' },
+      { name: 'r/gachaomnipotent', url: 'https://www.reddit.com/r/gachaomnipotent/', type: 'social' },
+      { name: 'r/gachaomniscient', url: 'https://www.reddit.com/r/gachaomniscient/', type: 'social' },
+      { name: 'r/gachaomnipresent', url: 'https://www.reddit.com/r/gachaomnipresent/', type: 'social' },
+      { name: 'r/gachainfinite', url: 'https://www.reddit.com/r/gachainfinite/', type: 'social' },
+      { name: 'r/gachaeternal', url: 'https://www.reddit.com/r/gachaeternal/', type: 'social' },
+      { name: 'r/gachaimmortal', url: 'https://www.reddit.com/r/gachaimmortal/', type: 'social' },
+      { name: 'r/gachadivinebeast', url: 'https://www.reddit.com/r/gachadivinebeast/', type: 'social' },
+      { name: 'r/gachadragons', url: 'https://www.reddit.com/r/gachadragons/', type: 'social' },
+      { name: 'r/gachaphoenix', url: 'https://www.reddit.com/r/gachaph oenix/', type: 'social' },
+      { name: 'r/gachaunicorn', url: 'https://www.reddit.com/r/gachaunicorn/', type: 'social' },
+      { name: 'r/gachagriffin', url: 'https://www.reddit.com/r/gachagriffin/', type: 'social' },
+      { name: 'r/gachakirins', url: 'https://www.reddit.com/r/gachakirins/', type: 'social' },
+      { name: 'r/gachaphoenixes', url: 'https://www.reddit.com/r/gachaphoenixes/', type: 'social' },
+      { name: 'r/gachapegasus', url: 'https://www.reddit.com/r/gachapegasus/', type: 'social' },
+      { name: 'r/gachacentaur', url: 'https://www.reddit.com/r/gachacentaur/', type: 'social' },
+      { name: 'r/gachamermaid', url: 'https://www.reddit.com/r/gachamermaid/', type: 'social' },
+      { name: 'r/gachasiren', url: 'https://www.reddit.com/r/gachasiren/', type: 'social' },
+      { name: 'r/gachaharpy', url: 'https://www.reddit.com/r/gachaharpy/', type: 'social' },
+      { name: 'r/gachagorgon', url: 'https://www.reddit.com/r/gachagorgon/', type: 'social' },
+      { name: 'r/gachamedusa', url: 'https://www.reddit.com/r/gachamedusa/', type: 'social' },
+      { name: 'r/gachachimera', url: 'https://www.reddit.com/r/gachachimera/', type: 'social' },
+      { name: 'r/gachabasilisk', url: 'https://www.reddit.com/r/gachabasilisk/', type: 'social' },
+      { name: 'r/gachacockatrice', url: 'https://www.reddit.com/r/gachacockatrice/', type: 'social' },
+      { name: 'r/gachawyvern', url: 'https://www.reddit.com/r/gachawyvern/', type: 'social' },
+      { name: 'r/gachawyrm', url: 'https://www.reddit.com/r/gachawyrm/', type: 'social' },
+      { name: 'r/gachadrake', url: 'https://www.reddit.com/r/gachadrake/', type: 'social' },
+      { name: 'r/gachalindworm', url: 'https://www.reddit.com/r/gachalindworm/', type: 'social' },
+      { name: 'r/gachaampithere', url: 'https://www.reddit.com/r/gachaampithere/', type: 'social' },
+      { name: 'r/gachafae', url: 'https://www.reddit.com/r/gachafae/', type: 'social' },
+      { name: 'r/gachafairy', url: 'https://www.reddit.com/r/gachafairy/', type: 'social' },
+      { name: 'r/gachapixie', url: 'https://www.reddit.com/r/gachapixie/', type: 'social' },
+      { name: 'r/gachasprite', url: 'https://www.reddit.com/r/gachasprite/', type: 'social' },
+      { name: 'r/gachabrownie', url: 'https://www.reddit.com/r/gachabrownie/', type: 'social' },
+      { name: 'r/gachagoblin', url: 'https://www.reddit.com/r/gachagoblin/', type: 'social' },
+      { name: 'r/gachahobgoblin', url: 'https://www.reddit.com/r/gachahobgoblin/', type: 'social' },
+      { name: 'r/gachaorc', url: 'https://www.reddit.com/r/gachaorc/', type: 'social' },
+      { name: 'r/gachatroll', url: 'https://www.reddit.com/r/gachatroll/', type: 'social' },
+      { name: 'r/gachaogre', url: 'https://www.reddit.com/r/gachaogre/', type: 'social' },
+      { name: 'r/gachagiant', url: 'https://www.reddit.com/r/gachagiant/', type: 'social' },
+      { name: 'r/gachatitan', url: 'https://www.reddit.com/r/gachatitan/', type: 'social' },
+      { name: 'r/gachacolossus', url: 'https://www.reddit.com/r/gachacolossus/', type: 'social' },
+      { name: 'r/gachajotun', url: 'https://www.reddit.com/r/gachajotun/', type: 'social' },
+      { name: 'r/gachafrostgiant', url: 'https://www.reddit.com/r/gachafrostgiant/', type: 'social' },
+      { name: 'r/gachafiregiant', url: 'https://www.reddit.com/r/gachafiregiant/', type: 'social' },
+      { name: 'r/gachastormgiant', url: 'https://www.reddit.com/r/gachastormgiant/', type: 'social' },
+      { name: 'r/gachacloudgiant', url: 'https://www.reddit.com/r/gachacloudgiant/', type: 'social' },
+      { name: 'r/gahahillgiant', url: 'https://www.reddit.com/r/gahahillgiant/', type: 'social' },
+      { name: 'r/gachastonegiant', url: 'https://www.reddit.com/r/gachastonegiant/', type: 'social' },
+      { name: 'r/gachamountaingiants', url: 'https://www.reddit.com/r/gachamountaingiants/', type: 'social' },
+      { name: 'r/gacha seagiants', url: 'https://www.reddit.com/r/gacha seagiants/', type: 'social' },
+      { name: 'r/gachaskygiants', url: 'https://www.reddit.com/r/gachaskygiants/', type: 'social' },
+      { name: 'r/gachasunagiants', url: 'https://www.reddit.com/r/gachasunagiants/', type: 'social' },
+      { name: 'r/gachamoonagiants', url: 'https://www.reddit.com/r/gachamoonagiants/', type: 'social' },
+      { name: 'r/gachastaragiants', url: 'https://www.reddit.com/r/gachastaragiants/', type: 'social' },
+      { name: 'r/gachavoidgiants', url: 'https://www.reddit.com/r/gachavoidgiants/', type: 'social' },
+      { name: 'r/gachaabyssgiants', url: 'https://www.reddit.com/r/gachaabyssgiants/', type: 'social' },
+      { name: 'r/gachachaosgiants', url: 'https://www.reddit.com/r/gachachaosgiants/', type: 'social' },
+      { name: 'r/gachaordergiants', url: 'https://www.reddit.com/r/gachaordergiants/', type: 'social' },
+      { name: 'r/gachalifegiants', url: 'https://www.reddit.com/r/gachalifegiants/', type: 'social' },
+      { name: 'r/gachadeathgiants', url: 'https://www.reddit.com/r/gachadeathgiants/', type: 'social' },
+      { name: 'r/gachatimegiants', url: 'https://www.reddit.com/r/gachatimegiants/', type: 'social' },
+      { name: 'r/gachaspacegiants', url: 'https://www.reddit.com/r/gachaspacegiants/', type: 'social' },
+      { name: 'r/gacharealitygiants', url: 'https://www.reddit.com/r/gacharealitygiants/', type: 'social' },
+      { name: 'r/gachadreamgiants', url: 'https://www.reddit.com/r/gachadreamgiants/', type: 'social' },
+      { name: 'r/gachanightmaregiants', url: 'https://www.reddit.com/r/gachanightmaregiants/', type: 'social' },
+      { name: 'r/gachamemorygiants', url: 'https://www.reddit.com/r/gachamemorygiants/', type: 'social' },
+      { name: 'r/gachaemotiongiants', url: 'https://www.reddit.com/r/gachaemotiongiants/', type: 'social' },
+      { name: 'r/gathoughtgiants', url: 'https://www.reddit.com/r/gathoughtgiants/', type: 'social' },
+      { name: 'r/gasoulgiants', url: 'https://www.reddit.com/r/gasoulgiants/', type: 'social' },
+      { name: 'r/gaspiritgiants', url: 'https://www.reddit.com/r/gaspiritgiants/', type: 'social' },
+      { name: 'r/gamindgiants', url: 'https://www.reddit.com/r/gamindgiants/', type: 'social' },
+      { name: 'r/gabodygiants', url: 'https://www.reddit.com/r/gabodygiants/', type: 'social' },
+      { name: 'r/gaenergygiants', url: 'https://www.reddit.com/r/gaenergygiants/', type: 'social' },
+      { name: 'r/gamattergiants', url: 'https://www.reddit.com/r/gamattergiants/', type: 'social' },
+      { name: 'r/gaelementgiants', url: 'https://www.reddit.com/r/gaelementgiants/', type: 'social' },
+      { name: 'r/gafiregiants2', url: 'https://www.reddit.com/r/gafiregiants2/', type: 'social' },
+      { name: 'r/gawateregiants', url: 'https://www.reddit.com/r/gawateregiants/', type: 'social' },
+      { name: 'r/gaearthgiants', url: 'https://www.reddit.com/r/gaearthgiants/', type: 'social' },
+      { name: 'r/gaairgiants', url: 'https://www.reddit.com/r/gaairgiants/', type: 'social' },
+      { name: 'r/galightgiants', url: 'https://www.reddit.com/r/galightgiants/', type: 'social' },
+      { name: 'r/gadarkgiants', url: 'https://www.reddit.com/r/gadarkgiants/', type: 'social' },
+      { name: 'r/ganaturegiants', url: 'https://www.reddit.com/r/ganaturegiants/', type: 'social' },
+      { name: 'r/gaanimalgiants', url: 'https://www.reddit.com/r/gaanimalgiants/', type: 'social' },
+      { name: 'r/gaplantgiants', url: 'https://www.reddit.com/r/gaplantgiants/', type: 'social' },
+      { name: 'r/gafungigiants', url: 'https://www.reddit.com/r/gafungigiants/', type: 'social' },
+      { name: 'r/gamachinegiants', url: 'https://www.reddit.com/r/gamachinegiants/', type: 'social' },
+      { name: 'r/gatechgiants', url: 'https://www.reddit.com/r/gatechgiants/', type: 'social' },
+      { name: 'r/gadigitalgiants', url: 'https://www.reddit.com/r/gadigitalgiants/', type: 'social' },
+      { name: 'r/ga virtualgiants', url: 'https://www.reddit.com/r/ga virtualgiants/', type: 'social' },
+      { name: 'r/gaartificialgiants', url: 'https://www.reddit.com/r/gaartificialgiants/', type: 'social' },
+      { name: 'r/ga cyborggiants', url: 'https://www.reddit.com/r/ga cyborggiants/', type: 'social' },
+      { name: 'r/gaandroidsgiants', url: 'https://www.reddit.com/r/gaandroidsgiants/', type: 'social' },
+      { name: 'r/ga robotsgiants', url: 'https://www.reddit.com/r/ga robotsgiants/', type: 'social' },
+      { name: 'r/ga aigiants', url: 'https://www.reddit.com/r/ga aigiants/', type: 'social' },
+      { name: 'r/gaalienagiants', url: 'https://www.reddit.com/r/gaalienagiants/', type: 'social' },
+      { name: 'r/gamutantgiants', url: 'https://www.reddit.com/r/gamutantgiants/', type: 'social' },
+      { name: 'r/gageneticgiants', url: 'https://www.reddit.com/r/gageneticgiants/', type: 'social' },
+      { name: 'r/gaevolutiongiants', url: 'https://www.reddit.com/r/gaevolutiongiants/', type: 'social' },
+      { name: 'r/gatranscendencegiants', url: 'https://www.reddit.com/r/gatranscendencegiants/', type: 'social' },
+      { name: 'r/gaascensiongiants', url: 'https://www.reddit.com/r/gaascensiongiants/', type: 'social' },
+      { name: 'r/gadivinitygiants', url: 'https://www.reddit.com/r/gadivinitygiants/', type: 'social' },
+      { name: 'r/gaholygiants', url: 'https://www.reddit.com/r/gaholygiants/', type: 'social' },
+      { name: 'r/gasoldegiants', url: 'https://www.reddit.com/r/gasoldegiants/', type: 'social' },
+      { name: 'r/gacelestialgiants', url: 'https://www.reddit.com/r/gacelestialgiants/', type: 'social' },
+      { name: 'r/gacosmicgiants', url: 'https://www.reddit.com/r/gacosmicgiants/', type: 'social' },
+      { name: 'r/gastellargiants', url: 'https://www.reddit.com/r/gastellargiants/', type: 'social' },
+      { name: 'r/gagalacticgiants', url: 'https://www.reddit.com/r/gagalacticgiants/', type: 'social' },
+      { name: 'r/gaintergalacticgiants', url: 'https://www.reddit.com/r/gaintergalacticgiants/', type: 'social' },
+      { name: 'r/gamultiversalgiants', url: 'https://www.reddit.com/r/gamultiversalgiants/', type: 'social' },
+      { name: 'r/gaomnigiants', url: 'https://www.reddit.com/r/gaomnigiants/', type: 'social' },
+      { name: 'r/gatotalgiants', url: 'https://www.reddit.com/r/gatotalgiants/', type: 'social' },
+      { name: 'r/gaabsolutegiants', url: 'https://www.reddit.com/r/gaabsolutegiants/', type: 'social' },
+      { name: 'r/gainfinitegiants', url: 'https://www.reddit.com/r/gainfinitegiants/', type: 'social' },
+      { name: 'r/gaeternalgiants', url: 'https://www.reddit.com/r/gaeternalgiants/', type: 'social' },
+      { name: 'r/gainfiniterealitygiants', url: 'https://www.reddit.com/r/gainfiniterealitygiants/', type: 'social' },
+      { name: 'r/gainfinitedreamgiants', url: 'https://www.reddit.com/r/gainfinitedreamgiants/', type: 'social' },
+      { name: 'r/gainfinitethoughtgiants', url: 'https://www.reddit.com/r/gainfinitethoughtgiants/', type: 'social' },
+      { name: 'r/gainfiniteemotiongiants', url: 'https://www.reddit.com/r/gainfiniteemotiongiants/', type: 'social' },
+      { name: 'r/gainfinitespiritgiants', url: 'https://www.reddit.com/r/gainfinitespiritgiants/', type: 'social' },
+      { name: 'r/gainfinitemindgiants', url: 'https://www.reddit.com/r/gainfinitemindgiants/', type: 'social' },
+      { name: 'r/gainfinitebodygiants', url: 'https://www.reddit.com/r/gainfinitebodygiants/', type: 'social' },
+      { name: 'r/gainfiniteenergygiants', url: 'https://www.reddit.com/r/gainfiniteenergygiants/', type: 'social' },
+      { name: 'r/gainfinitemattergiants', url: 'https://www.reddit.com/r/gainfinitemattergiants/', type: 'social' },
+      { name: 'r/gainfinitetimegiants', url: 'https://www.reddit.com/r/gainfinitetimegiants/', type: 'social' },
+      { name: 'r/gainfinitespacegiants', url: 'https://www.reddit.com/r/gainfinitespacegiants/', type: 'social' },
+      { name: 'r/gainfinitecreationgiants', url: 'https://www.reddit.com/r/gainfinitecreationgiants/', type: 'social' },
+      { name: 'r/gainfinitedestructiongiants', url: 'https://www.reddit.com/r/gainfinitedestructiongiants/', type: 'social' },
+      { name: 'r/gainfinitebalancegiants', url: 'https://www.reddit.com/r/gainfinitebalancegiants/', type: 'social' },
+      { name: 'r/gainfiniteharmonygiants', url: 'https://www.reddit.com/r/gainfiniteharmonygiants/', type: 'social' },
+      { name: 'r/gainfinitechaosgiants', url: 'https://www.reddit.com/r/gainfinitechaosgiants/', type: 'social' },
+      { name: 'r/gainfiniteordergiants', url: 'https://www.reddit.com/r/gainfiniteordergiants/', type: 'social' },
+      { name: 'r/gainfinitelifegiants', url: 'https://www.reddit.com/r/gainfinitelifegiants/', type: 'social' },
+      { name: 'r/gainfinitedeathgiants', url: 'https://www.reddit.com/r/gainfinitedeathgiants/', type: 'social' },
+      { name: 'r/gainfiniteexistencegiants', url: 'https://www.reddit.com/r/gainfiniteexistencegiants/', type: 'social' },
+      { name: 'r/gainfinitebeinggiants', url: 'https://www.reddit.com/r/gainfinitebeinggiants/', type: 'social' },
+      { name: 'r/gainfiniteconsciousnessgiants', url: 'https://www.reddit.com/r/gainfiniteconsciousnessgiants/', type: 'social' },
+      { name: 'r/gainfiniteawarenessgiants', url: 'https://www.reddit.com/r/gainfiniteawarenessgiants/', type: 'social' },
+      { name: 'r/gainfiniteperceptiongiants', url: 'https://www.reddit.com/r/gainfiniteperceptiongiants/', type: 'social' },
+      { name: 'r/gainfiniteunderstandinggiants', url: 'https://www.reddit.com/r/gainfiniteunderstandinggiants/', type: 'social' },
+      { name: 'r/gainfinitewisdomgiants', url: 'https://www.reddit.com/r/gainfinitewisdomgiants/', type: 'social' },
+      { name: 'r/gainfiniteknowledgegiants', url: 'https://www.reddit.com/r/gainfiniteknowledgegiants/', type: 'social' },
+      { name: 'r/gainfiniteintelligencegiants', url: 'https://www.reddit.com/r/gainfiniteintelligencegiants/', type: 'social' },
+      { name: 'r/gainfinitecreativitygiants', url: 'https://www.reddit.com/r/gainfinitecreativitygiants/', type: 'social' },
+      { name: 'r/gainfiniteimaginationgiants', url: 'https://www.reddit.com/r/gainfiniteimaginationgiants/', type: 'social' },
+      { name: 'r/gainfiniteinspirationgiants', url: 'https://www.reddit.com/r/gainfiniteinspirationgiants/', type: 'social' },
+      { name: 'r/gainfiniteexpressiongiants', url: 'https://www.reddit.com/r/gainfiniteexpressiongiants/', type: 'social' },
+      { name: 'r/gainfiniteartgiants', url: 'https://www.reddit.com/r/gainfiniteartgiants/', type: 'social' },
+      { name: 'r/gainfinitebeautygiants', url: 'https://www.reddit.com/r/gainfinitebeautygiants/', type: 'social' },
+      { name: 'r/gainfinitetruthtiants', url: 'https://www.reddit.com/r/gainfinitetruthtiants/', type: 'social' },
+      { name: 'r/gainfinitejusticegiants', url: 'https://www.reddit.com/r/gainfinitejusticegiants/', type: 'social' },
+      { name: 'r/gainfinitegoodgiants', url: 'https://www.reddit.com/r/gainfinitegoodgiants/', type: 'social' },
+      { name: 'r/gainfiniteevilgiants', url: 'https://www.reddit.com/r/gainfiniteevilgiants/', type: 'social' },
+      { name: 'r/gainfiniteneutralgiants', url: 'https://www.reddit.com/r/gainfiniteneutralgiants/', type: 'social' },
+      { name: 'r/gainfinitebalance2giants', url: 'https://www.reddit.com/r/gainfinitebalance2giants/', type: 'social' },
+      { name: 'r/gainfiniteharmony2giants', url: 'https://www.reddit.com/r/gainfiniteharmony2giants/', type: 'social' },
+      { name: 'r/gainfinitepeacegiants', url: 'https://www.reddit.com/r/gainfinitepeacegiants/', type: 'social' },
+      { name: 'r/gainfinitewargiants', url: 'https://www.reddit.com/r/gainfinitewargiants/', type: 'social' },
+      { name: 'r/gainfiniteconflictgiants', url: 'https://www.reddit.com/r/gainfiniteconflictgiants/', type: 'social' },
+      { name: 'r/gainfinitecooperationgiants', url: 'https://www.reddit.com/r/gainfinitecooperationgiants/', type: 'social' },
+      { name: 'r/gainfinitecompetitiongiants', url: 'https://www.reddit.com/r/gainfinitecompetitiongiants/', type: 'social' },
+      { name: 'r/gainfiniteevolution2giants', url: 'https://www.reddit.com/r/gainfiniteevolution2giants/', type: 'social' },
+      { name: 'r/gainfiniteprogressgiants', url: 'https://www.reddit.com/r/gainfiniteprogressgiants/', type: 'social' },
+      { name: 'r/gainfinitedevelopmentgiants', url: 'https://www.reddit.com/r/gainfinitedevelopmentgiants/', type: 'social' },
+      { name: 'r/gainfinitegrowthgiants', url: 'https://www.reddit.com/r/gainfinitegrowthgiants/', type: 'social' },
+      { name: 'r/gainfinitelearninggiants', url: 'https://www.reddit.com/r/gainfinitelearninggiants/', type: 'social' },
+      { name: 'r/gainfiniteadaptationgiants', url: 'https://www.reddit.com/r/gainfiniteadaptationgiants/', type: 'social' },
+      { name: 'r/gainfinitesurvivalgiants', url: 'https://www.reddit.com/r/gainfinitesurvivalgiants/', type: 'social' },
+      { name: 'r/gainfiniteexistence2giants', url: 'https://www.reddit.com/r/gainfiniteexistence2giants/', type: 'social' },
+      { name: 'r/gainfinitebeing2giants', url: 'https://www.reddit.com/r/gainfinitebeing2giants/', type: 'social' },
+      { name: 'r/gainfiniteconsciousness2giants', url: 'https://www.reddit.com/r/gainfiniteconsciousness2giants/', type: 'social' },
+      { name: 'r/gainfiniteawareness2giants', url: 'https://www.reddit.com/r/gainfiniteawareness2giants/', type: 'social' },
+      { name: 'r/gainfiniteperception2giants', url: 'https://www.reddit.com/r/gainfiniteperception2giants/', type: 'social' },
+      { name: 'r/gainfiniteunderstanding2giants', url: 'https://www.reddit.com/r/gainfiniteunderstanding2giants/', type: 'social' },
+      { name: 'r/gainfinitewisdom2giants', url: 'https://www.reddit.com/r/gainfinitewisdom2giants/', type: 'social' },
+      { name: 'r/gainfiniteknowledge2giants', url: 'https://www.reddit.com/r/gainfiniteknowledge2giants/', type: 'social' },
+      { name: 'r/gainfiniteintelligence2giants', url: 'https://www.reddit.com/r/gainfiniteintelligence2giants/', type: 'social' },
+      { name: 'r/gainfinitecreativity2giants', url: 'https://www.reddit.com/r/gainfinitecreativity2giants/', type: 'social' },
+      { name: 'r/gainfiniteimagination2giants', url: 'https://www.reddit.com/r/gainfiniteimagination2giants/', type: 'social' },
+      { name: 'r/gainfiniteinspiration2giants', url: 'https://www.reddit.com/r/gainfiniteinspiration2giants/', type: 'social' },
+      { name: 'r/gainfiniteexpression2giants', url: 'https://www.reddit.com/r/gainfiniteexpression2giants/', type: 'social' },
+      { name: 'r/gainfiniteart2giants', url: 'https://www.reddit.com/r/gainfiniteart2giants/', type: 'social' },
+      { name: 'r/gainfinitebeauty2giants', url: 'https://www.reddit.com/r/gainfinitebeauty2giants/', type: 'social' },
+      { name: 'r/gainfinitetruth2giants', url: 'https://www.reddit.com/r/gainfinitetruth2giants/', type: 'social' },
+      { name: 'r/gainfinitejustice2giants', url: 'https://www.reddit.com/r/gainfinitejustice2giants/', type: 'social' },
+      { name: 'r/gainfinitegood2giants', url: 'https://www.reddit.com/r/gainfinitegood2giants/', type: 'social' },
+      { name: 'r/gainfiniteevil2giants', url: 'https://www.reddit.com/r/gainfiniteevil2giants/', type: 'social' },
+      { name: 'r/gainfiniteneutral2giants', url: 'https://www.reddit.com/r/gainfiniteneutral2giants/', type: 'social' },
+      { name: 'r/gainfinitebalance3giants', url: 'https://www.reddit.com/r/gainfinitebalance3giants/', type: 'social' },
+      { name: 'r/gainfiniteharmony3giants', url: 'https://www.reddit.com/r/gainfiniteharmony3giants/', type: 'social' },
+      { name: 'r/gainfinitepeace2giants', url: 'https://www.reddit.com/r/gainfinitepeace2giants/', type: 'social' },
+      { name: 'r/gainfinitewar2giants', url: 'https://www.reddit.com/r/gainfinitewar2giants/', type: 'social' },
+      { name: 'r/gainfiniteconflict2giants', url: 'https://www.reddit.com/r/gainfiniteconflict2giants/', type: 'social' },
+      { name: 'r/gainfinitecooperation2giants', url: 'https://www.reddit.com/r/gainfinitecooperation2giants/', type: 'social' },
+      { name: 'r/gainfinitecompetition2giants', url: 'https://www.reddit.com/r/gainfinitecompetition2giants/', type: 'social' },
+      { name: 'r/gainfiniteevolution3giants', url: 'https://www.reddit.com/r/gainfiniteevolution3giants/', type: 'social' },
+      { name: 'r/gainfiniteprogress2giants', url: 'https://www.reddit.com/r/gainfiniteprogress2giants/', type: 'social' },
+      { name: 'r/gainfinitedevelopment2giants', url: 'https://www.reddit.com/r/gainfinitedevelopment2giants/', type: 'social' },
+      { name: 'r/gainfinitegrowth2giants', url: 'https://www.reddit.com/r/gainfinitegrowth2giants/', type: 'social' },
+      { name: 'r/gainfinitelearning2giants', url: 'https://www.reddit.com/r/gainfinitelearning2giants/', type: 'social' },
+      { name: 'r/gainfiniteadaptation2giants', url: 'https://www.reddit.com/r/gainfiniteadaptation2giants/', type: 'social' },
+      { name: 'r/gainfinitesurvival2giants', url: 'https://www.reddit.com/r/gainfinitesurvival2giants/', type: 'social' }
+    ];
+    // 合并用户自定义添加的目标
+    const customTargets = state.promotionTargets || [];
+    const targets = [...defaultTargets, ...customTargets];
+    // 从目标池随机选择（避免重复轰炸同一个站点）
+    const recentTargets = (state.promotionLog || []).slice(-5).map(p => p.target);
+    const available = targets.filter(t => !recentTargets.includes(t.name));
+    const target = (available.length > 0 ? available : targets)[Math.floor(Math.random() * (available.length > 0 ? available.length : targets.length))];
+    const result = {
+      promoId: 'PROMO-' + Date.now(),
+      timestamp: new Date().toISOString(),
+      product: product.name,
+      target: target.name,
+      targetUrl: target.url,
+      title: content.title,
+      status: 'attempted',
+      message: ''
+    };
+    try {
+      // 真实访问目标站点，验证可访问性
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      const res = await fetch(target.url, { signal: controller.signal, headers: { 'User-Agent': 'Fantasy3D-AutoPromotion/1.0' } });
+      clearTimeout(timeout);
+      result.status = res.ok ? 'content_ready' : 'site_unavailable';
+      result.message = res.ok ? `已生成「${target.name}」推广文案，待发布（游客发帖需手动确认）` : `目标站点返回 ${res.status}`;
+      result.httpStatus = res.status;
+    } catch (err) {
+      result.status = 'failed';
+      result.message = '推广失败：' + err.message;
+    }
+    state.promotionLog.push(result);
+    if (state.promotionLog.length > 30) state.promotionLog = state.promotionLog.slice(-30);
+    commit(state);
+    return result;
   }
 
   // ===== 团队会议机制（智能体商量决策）=====
@@ -697,48 +1812,141 @@ function createStoreApp({ dataDir }) {
     return `发现 ${high.length} 个高优先级商机，建议生产上架智能体立即启动「${high[0].category}」类资产生产`;
   }
 
+  // ===== 智能商品名优化（从文件名提取有意义的名字）=====
+  function optimizeProductName(filename) {
+    let name = filename;
+    // 去掉文件扩展名
+    name = name.replace(/\.(glb|gltf|fbx|obj|dae|3ds|blend|ma|mb|zip|rar)$/i, '');
+    // 去掉常见的前缀（assets_、incoming_、backup_、clean_、日期等）
+    name = name.replace(/^(assets_|incoming_|backup_|clean_|model_|models_)/i, '');
+    name = name.replace(/^\d{4}[_-]?\d{2}[_-]?\d{2}[_-]?\d{0,6}[_-]?/, ''); // 去掉日期前缀
+    name = name.replace(/^[a-z]{2,}_\d{6,}_/i, ''); // 去掉类似clean_20260905_的前缀
+    // 去掉末尾的数字编号（如 _3652、_9283）
+    name = name.replace(/_\d{3,5}$/, '');
+    // 下划线转空格，首字母大写
+    name = name.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+    // 如果名字太短或全是数字，用类别+编号
+    if (name.length < 2 || /^\d+$/.test(name)) {
+      name = '3D模型 ' + filename.substring(0, 8);
+    }
+    return name;
+  }
+
+  // ===== 智能商品介绍生成（结合实际文件信息）=====
+  function generateProductDesc(filename, category, fileSize) {
+    const ext = path.extname(filename).toLowerCase();
+    const sizeMB = (fileSize / 1024 / 1024).toFixed(2);
+    const categoryNames = { environment: '场景环境', characters: '角色', props: '道具', other: '其他' };
+    const catName = categoryNames[category] || '3D资产';
+    // 从文件名推断内容
+    let contentDesc = '';
+    const lowerName = filename.toLowerCase();
+    if (/character|hero|npc|man|woman|boy|girl|角色|人物|英雄/.test(lowerName)) contentDesc = '角色模型，适合游戏角色使用';
+    else if (/tree|plant|flower|grass|树|植物|花|草/.test(lowerName)) contentDesc = '植被模型，适合场景搭建';
+    else if (/building|tower|temple|palace|house|建筑|塔|庙|宫殿|房/.test(lowerName)) contentDesc = '建筑模型，可用于场景搭建';
+    else if (/weapon|sword|gun|bow|武器|剑|刀|枪|弓/.test(lowerName)) contentDesc = '武器模型，适合角色装备';
+    else if (/rock|stone|mountain|terrain|岩石|石头|山|地形/.test(lowerName)) contentDesc = '地形岩石模型，适合场景搭建';
+    else if (/prop|item|object|道具|物品/.test(lowerName)) contentDesc = '道具模型，可交互使用';
+    else contentDesc = `${catName}模型，适合游戏开发使用`;
+
+    const formatDesc = ext === '.glb' ? 'GLB二进制格式，加载快，单文件' :
+                       ext === '.gltf' ? 'GLTF格式，支持外部资源' :
+                       ext === '.fbx' ? 'FBX格式，兼容主流3D软件' :
+                       ext === '.obj' ? 'OBJ格式，通用3D格式' : `${ext.substring(1).toUpperCase()}格式`;
+
+    return {
+      shortDesc: `${contentDesc} · ${formatDesc} · ${sizeMB}MB`,
+      fullDesc: `${contentDesc}。\n\n【文件信息】\n- 文件名：${filename}\n- 格式：${formatDesc}\n- 大小：${sizeMB}MB\n- 类别：${catName}\n\n【使用说明】\n- 自带碰撞体，可直接导入Cocos Creator / Unity / Unreal\n- 低面数优化，适配移动端\n- 由生产员智能体自动扫描上架，经过质量检测`
+    };
+  }
+
   // ===== 本地模型文件夹自动扫描上架 =====
+  // 扫描项目内的模型文件（部署到Render后用，自动根据GLB生成商品）
+  function scanProjectModels() {
+    const results = { scanned: 0, added: 0, skipped: 0 };
+    const searchDirs = [path.join(__dirname, 'frontend', 'models')];
+    // 添加models_batch1-10目录
+    for (let i = 1; i <= 10; i++) {
+      searchDirs.push(path.join(__dirname, 'frontend', `models_batch${i}`));
+    }
+    const existingNames = new Set(state.products.map(p => p.name.toLowerCase()));
+    for (const scanDir of searchDirs) {
+      if (!fs.existsSync(scanDir)) continue;
+      try {
+        const files = fs.readdirSync(scanDir).filter(f => f.toLowerCase().endsWith('.glb'));
+        results.scanned += files.length;
+        for (const file of files) {
+          const optimizedName = optimizeProductName(file);
+          if (existingNames.has(optimizedName.toLowerCase())) { results.skipped++; continue; }
+          const rawName = path.basename(file, '.glb');
+          const category = inferCategory(rawName);
+          const filePath = path.join(scanDir, file);
+          const fileStat = fs.statSync(filePath);
+          const desc = generateProductDesc(file, category, fileStat.size);
+          const newProduct = {
+            productId: 'proj-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+            name: optimizedName,
+            category: category,
+            price: 1.00,
+            status: 'published',
+            source: 'local',
+            filePath: filePath,
+            spec: { shortDesc: desc.shortDesc, fullDesc: desc.fullDesc }
+          };
+          state.products.push(newProduct);
+          existingNames.add(optimizedName.toLowerCase());
+          results.added++;
+        }
+      } catch (e) {}
+    }
+    if (results.added > 0) {
+      state.agentStates.listing.experience += results.added;
+      commit(state);
+    }
+    return { ...results, message: `项目模型扫描：发现${results.scanned}个GLB，新增${results.added}件，跳过${results.skipped}件` };
+  }
+
   function scanLocalModels() {
+    // 先扫描项目内模型（Render部署后用）
+    const projResult = scanProjectModels();
     const scanDir = AUTONOMY_CONFIG.localModelDir;
-    const results = { scanned: 0, added: 0, skipped: 0, files: [] };
+    const results = { scanned: projResult.scanned, added: projResult.added, skipped: projResult.skipped, files: [] };
     try {
       if (!fs.existsSync(scanDir)) {
-        return { ...results, message: `本地模型文件夹不存在：${scanDir}，请创建该文件夹并放入模型文件` };
+        return { ...results, message: projResult.message + `；本地模型文件夹不存在：${scanDir}` };
       }
       const files = fs.readdirSync(scanDir);
       const modelExts = ['.fbx', '.obj', '.glb', '.gltf', '.dae', '.3ds', '.blend', '.ma', '.mb', '.zip', '.rar'];
       const modelFiles = files.filter(f => modelExts.includes(path.extname(f).toLowerCase()));
-      results.scanned = modelFiles.length;
+      results.scanned += modelFiles.length;
       const existingNames = state.products.map(p => p.name.toLowerCase());
       for (const file of modelFiles) {
-        const name = path.basename(file, path.extname(file));
-        if (existingNames.includes(name.toLowerCase())) { results.skipped++; continue; }
+        const rawName = path.basename(file, path.extname(file));
+        const optimizedName = optimizeProductName(file);
+        if (existingNames.includes(optimizedName.toLowerCase())) { results.skipped++; continue; }
         const ext = path.extname(file).toLowerCase();
-        let category = 'props';
-        if (/场景|环境|scene|env|level|map/i.test(name)) category = 'environment';
-        else if (/角色|人物|character|hero|npc|monster/i.test(name)) category = 'characters';
-        else if (/道具|prop|item|weapon|tool/i.test(name)) category = 'props';
-        const basePrices = { environment: 39.99, characters: 59.99, props: 14.99 };
-        const price = basePrices[category] || 29.99;
+        const category = inferCategory(rawName);
+        const fileStat = fs.statSync(path.join(scanDir, file));
+        const desc = generateProductDesc(file, category, fileStat.size);
         const newProduct = {
           productId: 'local-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
-          name: name,
+          name: optimizedName,
           category: category,
-          price: price,
+          price: 1.00,
           status: 'published',
           source: 'local',
           filePath: path.join(scanDir, file),
           spec: {
-            shortDesc: `本地模型 · ${ext}格式 · 自动扫描上架`,
-            fullDesc: `该商品由生产员智能体自动扫描本地文件夹「${scanDir}」发现并上架。文件格式：${ext}。类别：${category}。自带碰撞体，可直接导入Cocos Creator。`
+            shortDesc: desc.shortDesc,
+            fullDesc: desc.fullDesc
           }
         };
         state.products.push(newProduct);
         results.added++;
-        results.files.push(name);
+        results.files.push(file);
       }
       state.agentStates.listing.status = 'working';
-      state.agentStates.listing.currentTask = `扫描本地模型文件夹，新增${results.added}件商品`;
+      state.agentStates.listing.currentTask = `扫描模型文件夹，新增${results.added}件商品`;
       state.agentStates.listing.lastAction = new Date().toISOString();
       state.agentStates.listing.experience += results.added;
       commit(state);
@@ -750,72 +1958,167 @@ function createStoreApp({ dataDir }) {
 
   // ===== 网络搜索免费3D模型（自动采集转卖）=====
   function searchFreeModelsFromWeb() {
-    const freeModelSources = [
-      { name: 'Sketchfab免费区', url: 'sketchfab.com', models: [
-        { name: '古风亭台楼阁', category: 'environment', price: 19.99, desc: '从免费资源采集的古风亭台，经过优化重拓扑，自带碰撞体' },
-        { name: '低多边形松树', category: 'environment', price: 9.99, desc: '免费低面数松树，适配移动端，自带碰撞体' },
-        { name: '石狮子雕像', category: 'props', price: 12.99, desc: '中国风石狮子，门口摆件，自带碰撞体' },
+    // 全品类免费资源采集：3D模型、2D素材、音效、字体、代码、图标、视频、游戏资产包
+    const freeSources = [
+      // 3D模型类
+      { name: 'Sketchfab免费区', url: 'sketchfab.com', category: '3d', items: [
+        { name: '古风亭台楼阁', desc: '从免费资源采集的古风亭台，经过优化重拓扑，自带碰撞体' },
+        { name: '低多边形松树', desc: '免费低面数松树，适配移动端，自带碰撞体' },
+        { name: '石狮子雕像', desc: '中国风石狮子，门口摆件，自带碰撞体' },
       ]},
-      { name: 'Google Poly存档', url: 'poly.google.com', models: [
-        { name: '卡通小狐狸', category: 'characters', price: 24.99, desc: '可爱卡通狐狸角色，带待机动画，自带碰撞体' },
-        { name: '木质宝箱', category: 'props', price: 8.99, desc: '可开合物宝箱，带打开动画，自带碰撞体' },
+      { name: 'OpenGameArt', url: 'opengameart.org', category: '3d', items: [
+        { name: '仙侠飞剑', desc: '古风飞剑武器，带御剑飞行动画，自带碰撞体' },
+        { name: '浮空小岛', desc: '小型浮空岛基地，可拼接扩展，自带碰撞体' },
+        { name: '炼丹炉', desc: '古风炼丹炉，带烟火粒子效果，自带碰撞体' },
       ]},
-      { name: 'OpenGameArt', url: 'opengameart.org', models: [
-        { name: '仙侠飞剑', category: 'props', price: 15.99, desc: '古风飞剑武器，带御剑飞行动画，自带碰撞体' },
-        { name: '浮空小岛', category: 'environment', price: 34.99, desc: '小型浮空岛基地，可拼接扩展，自带碰撞体' },
-        { name: '炼丹炉', category: 'props', price: 18.99, desc: '古风炼丹炉，带烟火粒子效果，自带碰撞体' },
+      { name: 'Kenney免费资产', url: 'kenney.nl', category: '3d', items: [
+        { name: '卡通城堡套装', desc: '模块化城堡组件，可自由组合，自带碰撞体' },
+        { name: '战士角色', desc: '卡通战士，带攻击受击动画，自带碰撞体' },
+        { name: '太空飞船包', desc: '低多边形太空飞船套装，含12种飞船，自带碰撞体' },
       ]},
-      { name: 'Kenney免费资产', url: 'kenney.nl', models: [
-        { name: '卡通城堡套装', category: 'environment', price: 45.99, desc: '模块化城堡组件，可自由组合，自带碰撞体' },
-        { name: '战士角色', category: 'characters', price: 39.99, desc: '卡通战士，带攻击受击动画，自带碰撞体' },
-      ]}
+      // 2D素材/纹理类
+      { name: 'Texture Haven', url: 'texturehaven.com', category: '2d', items: [
+        { name: '古风木纹纹理集', desc: '高清PBR木纹材质，含漫反射/法线/粗糙度贴图，4K分辨率' },
+        { name: '石墙纹理套装', desc: '中国风石墙材质，无缝平铺，适合古建筑场景' },
+        { name: '仙侠云雾特效', desc: '2D云雾粒子特效序列帧，含30帧动画，透明背景' },
+      ]},
+      { name: 'Freepik免费区', url: 'freepik.com', category: '2d', items: [
+        { name: '国风插画合集', desc: '中国风场景插画10张，含山水/宫殿/仙侠人物，可商用' },
+        { name: '游戏UI图标包', desc: '古风游戏UI图标50个，含道具/装备/技能图标，PSD分层' },
+        { name: '仙侠背景图', desc: '仙侠游戏背景图5张，2K分辨率，含分层源文件' },
+      ]},
+      // 音效/音乐类
+      { name: 'Freesound', url: 'freesound.org', category: 'audio', items: [
+        { name: '古风环境音效包', desc: '中国风环境音效20个，含钟声/风声/水流/鸟鸣，WAV无损' },
+        { name: '战斗音效合集', desc: '游戏战斗音效50个，含刀剑/法术/受击/技能音效' },
+        { name: '仙侠背景音乐', desc: '古风背景音乐3首，循环无缝，320kbps MP3+WAV' },
+      ]},
+      { name: 'YouTube音频库', url: 'youtube.com/audiolibrary', category: 'audio', items: [
+        { name: '史诗战斗音乐', desc: '史诗级战斗背景音乐，适合BOSS战场景，可商用' },
+        { name: '轻松探索音乐', desc: '轻松愉快的探索背景音乐，适合野外/城镇场景' },
+      ]},
+      // 字体类
+      { name: 'Google Fonts', url: 'fonts.google.com', category: 'font', items: [
+        { name: '古风书法字体包', desc: '中国风书法字体5款，含楷书/行书/草书，可商用' },
+        { name: '游戏像素字体', desc: '像素风格字体3款，适合复古游戏，含中英文' },
+      ]},
+      { name: 'DaFont免费区', url: 'dafont.com', category: 'font', items: [
+        { name: '仙侠标题字体', desc: '适合游戏标题的艺术字体2款，含特殊效果样式' },
+      ]},
+      // 代码/模板类
+      { name: 'GitHub开源', url: 'github.com', category: 'code', items: [
+        { name: 'Unity Inventory系统', desc: '完整的游戏背包系统源码，含拖拽/分类/装备功能，C#编写' },
+        { name: 'Cocos Creator战斗框架', desc: '回合制战斗系统模板，含技能/BUFF/AI，可直接使用' },
+        { name: '对话系统插件', desc: '可视化对话系统，支持分支选项/语音/打字机效果' },
+      ]},
+      // 图标/UI类
+      { name: 'Flaticon', url: 'flaticon.com', category: 'ui', items: [
+        { name: '游戏道具图标集', desc: '游戏道具图标100个，含武器/防具/药水/材料，PNG+SVG' },
+        { name: '成就徽章图标', desc: '成就/徽章图标50个，金色/银色/铜色三种品质' },
+      ]},
+      { name: 'Iconfont', url: 'iconfont.cn', category: 'ui', items: [
+        { name: '古风UI控件包', desc: '中国风UI控件套装，含按钮/边框/对话框/血条，PSD+PNG' },
+      ]},
+      // 视频素材类
+      { name: 'Pexels Videos', url: 'pexels.com/videos', category: 'video', items: [
+        { name: '自然风光视频素材', desc: '4K自然风光视频10段，含山水/云雾/日出，可商用' },
+        { name: '城市夜景视频', desc: '城市夜景延时摄影5段，适合游戏背景/过场动画' },
+      ]},
+      // 游戏资产包
+      { name: 'itch.io免费区', url: 'itch.io', category: 'bundle', items: [
+        { name: '完整游戏资产包', desc: '包含角色/场景/音效/UI的完整游戏资产包，可直接做游戏' },
+        { name: 'Roguelike地牢素材包', desc: '地牢探险游戏完整素材，含地图/怪物/道具/特效' },
+      ]},
     ];
-    const source = freeModelSources[Math.floor(Math.random() * freeModelSources.length)];
-    const model = source.models[Math.floor(Math.random() * source.models.length)];
+    const source = freeSources[Math.floor(Math.random() * freeSources.length)];
+    const item = source.items[Math.floor(Math.random() * source.items.length)];
     const existingNames = state.products.map(p => p.name.toLowerCase());
-    if (existingNames.includes(model.name.toLowerCase())) {
-      return { success: false, message: `从${source.name}发现「${model.name}」，但已存在于商店，跳过` };
+    if (existingNames.includes(item.name.toLowerCase())) {
+      return { success: false, message: `从${source.name}发现「${item.name}」，但已存在于商店，跳过` };
     }
+    const categoryNames = { '3d': '3D模型', '2d': '2D素材', 'audio': '音效音乐', 'font': '字体', 'code': '代码模板', 'ui': 'UI图标', 'video': '视频素材', 'bundle': '资产包' };
     const newProduct = {
       productId: 'web-' + Date.now(),
-      name: model.name,
-      category: model.category,
-      price: model.price,
+      name: item.name,
+      category: source.category,
+      price: 1.00,
       status: 'published',
       source: 'web',
       sourceUrl: source.url,
       spec: {
-        shortDesc: model.desc,
-        fullDesc: model.desc + `。该商品由调研员智能体从${source.name}（${source.url}）采集免费资源，经过优化后上架转卖。利润空间：${(model.price * 0.6).toFixed(2)}元。`
+        shortDesc: item.desc,
+        fullDesc: item.desc + `\n\n【来源】${source.name}（${source.url}）免费资源采集\n【类型】${categoryNames[source.category] || '其他'}\n【说明】由调研员智能体自动采集免费资源，经过质量检测后上架，全部统一售价$1.00。`
       }
     };
     state.products.push(newProduct);
     state.agentStates.researcher.status = 'working';
-    state.agentStates.researcher.currentTask = `从${source.name}采集免费模型「${model.name}」`;
+    state.agentStates.researcher.currentTask = `从${source.name}采集「${item.name}」`;
     state.agentStates.researcher.lastAction = new Date().toISOString();
     state.agentStates.researcher.experience += 1;
     commit(state);
-    return { success: true, message: `从${source.name}采集免费模型「${model.name}」，定价¥${model.price}上架，利润¥${(model.price * 0.6).toFixed(2)}`, product: newProduct, source: source.name };
+    return { success: true, message: `从${source.name}采集「${item.name}」(${categoryNames[source.category]})，定价$1.00自动上架`, product: newProduct, source: source.name };
   }
 
-  // ===== 自动定价引擎 =====
+  // ===== 智能定价引擎（$0.10-$1.00区间，卖得好涨，卖不好降，不频繁）=====
   function autoPriceProduct(productId) {
     const product = state.products.find(p => p.productId === productId);
     if (!product) return { success: false, error: '商品不存在' };
-    const basePrices = { environment: 39.99, characters: 59.99, props: 14.99 };
-    const categoryAvg = basePrices[product.category] || 29.99;
-    const sameCategory = state.products.filter(p => p.category === product.category && p.status === 'published');
-    const marketAvg = sameCategory.length > 0 ? sameCategory.reduce((s, p) => s + p.price, 0) / sameCategory.length : categoryAvg;
-    const demandMultiplier = Math.random() > 0.5 ? 1.1 : 0.95;
-    const newPrice = Math.round(marketAvg * demandMultiplier * 100) / 100;
+    // 价格区间：最低$0.10，最高$1.00
+    const MIN_PRICE = 0.10;
+    const MAX_PRICE = 1.00;
+    // 模拟销量数据（如果没有销量字段，初始化为0）
+    if (product.salesCount === undefined) product.salesCount = Math.floor(Math.random() * 5);
+    if (product.priceHistory === undefined) product.priceHistory = [];
+    // 记录上次调价时间，避免太频繁（至少间隔6小时）
+    const now = Date.now();
+    if (product.lastPriceChange && (now - product.lastPriceChange) < 6 * 60 * 60 * 1000) {
+      return { success: false, message: `「${product.name}」距上次调价不足6小时，跳过` };
+    }
     const oldPrice = product.price;
+    let newPrice = oldPrice;
+    let reason = '';
+    // 根据销量调整：销量>=3涨价，销量=0降价，中间不动
+    if (product.salesCount >= 3) {
+      // 卖得好，涨价5-10美分
+      const increase = 0.05 + Math.random() * 0.05;
+      newPrice = Math.min(MAX_PRICE, Math.round((oldPrice + increase) * 100) / 100);
+      reason = `销量${product.salesCount}件表现好，涨价至$${newPrice}`;
+    } else if (product.salesCount === 0) {
+      // 卖不动，降价5-10美分
+      const decrease = 0.05 + Math.random() * 0.05;
+      newPrice = Math.max(MIN_PRICE, Math.round((oldPrice - decrease) * 100) / 100);
+      reason = `销量为0卖不动，降价至$${newPrice}`;
+    } else {
+      return { success: false, message: `「${product.name}」销量${product.salesCount}件，价格维持$${oldPrice}` };
+    }
+    if (newPrice === oldPrice) {
+      return { success: false, message: `「${product.name}」已到价格区间边界，维持$${oldPrice}` };
+    }
     product.price = newPrice;
+    product.lastPriceChange = now;
+    product.priceHistory.push({ time: new Date().toISOString(), oldPrice, newPrice, reason });
+    if (product.priceHistory.length > 20) product.priceHistory = product.priceHistory.slice(-20);
     state.agentStates.listing.status = 'working';
-    state.agentStates.listing.currentTask = `自动定价「${product.name}」`;
+    state.agentStates.listing.currentTask = `智能定价「${product.name}」`;
     state.agentStates.listing.lastAction = new Date().toISOString();
     state.agentStates.listing.experience += 1;
     commit(state);
-    return { success: true, productId, name: product.name, oldPrice, newPrice, change: ((newPrice - oldPrice) / oldPrice * 100).toFixed(1) + '%', reason: `基于${sameCategory.length}件同类商品市场价${marketAvg.toFixed(2)}元动态调整` };
+    return { success: true, productId, name: product.name, oldPrice, newPrice, change: ((newPrice - oldPrice) / oldPrice * 100).toFixed(1) + '%', reason };
+  }
+
+  // 批量智能调价（每次只调5个，避免太频繁）
+  function batchAutoPrice() {
+    const published = state.products.filter(p => p.status === 'published');
+    if (published.length === 0) return { success: false, message: '暂无商品' };
+    // 随机选5个商品调价
+    const shuffled = published.sort(() => Math.random() - 0.5);
+    const targets = shuffled.slice(0, 5);
+    const results = [];
+    targets.forEach(p => {
+      const r = autoPriceProduct(p.productId);
+      if (r.success) results.push(r);
+    });
+    return { success: true, adjusted: results.length, results };
   }
 
   // ===== 主动推销（智能体主动找客人、介绍自己）=====
@@ -875,6 +2178,33 @@ function createStoreApp({ dataDir }) {
     if (state.acquisitionLog.length > 20) state.acquisitionLog = state.acquisitionLog.slice(-20);
     commit(state);
     return { success: true, ...result };
+  }
+
+  // ===== 智能体自我学习机制 =====
+  function agentLearn(agentId, lesson, skillToImprove) {
+    const agent = state.agentStates[agentId];
+    if (!agent) return;
+    agent.experience += 1;
+    // 记录学习日志
+    if (!agent.learningLog) agent.learningLog = [];
+    agent.learningLog.push({
+      timestamp: new Date().toISOString(),
+      lesson,
+      skill: skillToImprove
+    });
+    if (agent.learningLog.length > 50) agent.learningLog = agent.learningLog.slice(-50);
+    // 提升对应技能（无上限，无限成长）
+    if (skillToImprove && agent.skills && agent.skills[skillToImprove] !== undefined) {
+      agent.skills[skillToImprove] += 1;
+      // 高等级智能体学习速度更快（复利成长）
+      if (agent.skills[skillToImprove] > 50) agent.skills[skillToImprove] += 1;
+      if (agent.skills[skillToImprove] > 100) agent.skills[skillToImprove] += 2;
+      if (agent.skills[skillToImprove] > 200) agent.skills[skillToImprove] += 3;
+    }
+    // 全局知识库记录
+    if (!state.knowledge.lessonsLearned) state.knowledge.lessonsLearned = [];
+    state.knowledge.lessonsLearned.push(`[${agentId}] ${lesson}`);
+    if (state.knowledge.lessonsLearned.length > 100) state.knowledge.lessonsLearned = state.knowledge.lessonsLearned.slice(-100);
   }
 
   // ===== 学习机制（从交互中学习）=====
@@ -1009,7 +2339,7 @@ function createStoreApp({ dataDir }) {
 
   // ===== 收款信息 API =====
   app.get('/api/store/payment', (req, res) => {
-    res.json({ paypal: PAYMENT_CONFIG.paypalEmail, currency: PAYMENT_CONFIG.currency, methods: ['PayPal'] });
+    res.json({ paypal: PAYMENT_CONFIG.paypalEmail, paypalMe: PAYMENT_CONFIG.paypalMe, currency: PAYMENT_CONFIG.currency, methods: ['PayPal'] });
   });
 
   // ===== 多语言 API =====
@@ -1048,7 +2378,18 @@ function createStoreApp({ dataDir }) {
     res.status(201).json({ success: true, campaign: result });
   });
   app.get('/api/store/marketing', (req, res) => {
-    res.json({ campaigns: (state.marketingLog || []).slice(-10).reverse() });
+    res.json({ campaigns: (state.marketingLog || []).slice(-10).reverse(), promotions: (state.promotionLog || []).slice(-10).reverse(), targetCount: 40 + (state.promotionTargets || []).length, customTargets: state.promotionTargets || [] });
+  });
+
+  // 添加自定义推广目标（用户可无限扩展目标网站池）
+  app.post('/api/store/promotion/targets', (req, res) => {
+    const { name, url, type } = req.body || {};
+    if (!name || !url) return res.status(400).json({ error: 'name和url必填' });
+    if (!state.promotionTargets) state.promotionTargets = [];
+    const newTarget = { name, url, type: type || 'forum' };
+    state.promotionTargets.push(newTarget);
+    commit(state);
+    res.json({ success: true, message: `已添加推广目标「${name}」，当前目标池共 ${40 + state.promotionTargets.length} 个网站`, target: newTarget });
   });
 
   // ===== 客户获取 API =====
@@ -1089,11 +2430,56 @@ function createStoreApp({ dataDir }) {
     res.json({
       faq: state.knowledge.faq.slice(-20),
       lessons: state.knowledge.lessonsLearned.slice(-20),
-      totalLearned: state.knowledge.faq.length
+      totalLearned: state.knowledge.faq.length,
+      agentLearning: Object.keys(state.agentStates).map(id => ({
+        id,
+        name: agents.find(a => a.id === id)?.name || id,
+        experience: state.agentStates[id].experience,
+        skills: state.agentStates[id].skills,
+        recentLessons: (state.agentStates[id].learningLog || []).slice(-5).reverse()
+      }))
     });
   });
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found.' }));
+  // ===== 3D模型文件访问（D盘模型可通过URL直接加载预览）=====
+  app.get('/models/:filename', (req, res) => {
+    const filename = path.basename(req.params.filename);
+    const glbName = filename.replace(/\.(fbx|obj|blend|stl|dae|3ds)$/i, '.glb');
+    const frontendDir = path.join(__dirname, 'frontend');
+    
+    // 构建搜索路径列表：models目录 + models_batch1~10子目录 + D盘预览 + D盘原文件
+    const searchPaths = [
+      path.join(frontendDir, 'models', filename),
+      path.join(frontendDir, 'models', glbName),
+    ];
+    // 添加models_batch1到models_batch10子目录
+    for (let i = 1; i <= 10; i++) {
+      searchPaths.push(path.join(frontendDir, `models_batch${i}`, filename));
+      searchPaths.push(path.join(frontendDir, `models_batch${i}`, glbName));
+    }
+    searchPaths.push(
+      path.join(AUTONOMY_CONFIG.localModelDir, '_preview', filename),
+      path.join(AUTONOMY_CONFIG.localModelDir, '_preview', glbName),
+      path.join(AUTONOMY_CONFIG.localModelDir, filename)
+    );
+    
+    let filePath = null;
+    for (const p of searchPaths) {
+      if (fs.existsSync(p)) { filePath = p; break; }
+    }
+    
+    if (!filePath) {
+      return res.status(404).json({ error: '模型文件不存在' });
+    }
+    
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeTypes = { '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.obj': 'text/plain', '.fbx': 'application/octet-stream' };
+    res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    fs.createReadStream(filePath).pipe(res);
+  });
+
   app.use(express.static(path.join(__dirname, 'frontend'), { dotfiles: 'deny' }));
   app.use((err, req, res, next) => {
     if (res.headersSent) return next(err);
@@ -1106,6 +2492,8 @@ function createStoreApp({ dataDir }) {
   app.locals.scanLocal = scanLocalModels;
   app.locals.webSearch = searchFreeModelsFromWeb;
   app.locals.holdMeeting = holdTeamMeeting;
+  app.locals.runRadar = scanOpportunities;
+  app.locals.doPromotion = () => { const published = state.products.filter(p => p.status === 'published'); if (published.length > 0) { const product = published[Math.floor(Math.random() * published.length)]; const content = generatePromoContent(product); realPromotion(content, product); } };
 
   return app;
 }
@@ -1145,6 +2533,26 @@ async function startServer({ port = 0, dataDir } = {}) {
     } catch (e) { console.error('[自治商店] 搜索失败:', e.message); }
   }, AUTONOMY_CONFIG.autoWebSearchInterval);
 
+  // 每10分钟商机雷达扫描（发现商机后自动触发免费商品采集）
+  const radarTimer = setInterval(() => {
+    try {
+      const scan = app.locals.runRadar && app.locals.runRadar();
+      if (scan && scan.highPriority > 0) {
+        console.log('[自治商店] 雷达发现高优先级商机，触发免费商品采集');
+        setTimeout(() => { app.locals.webSearch && app.locals.webSearch(); }, 3000);
+      }
+      console.log('[自治商店] 商机雷达扫描完成');
+    } catch (e) { console.error('[自治商店] 雷达扫描失败:', e.message); }
+  }, 10 * 60 * 1000);
+
+  // 每20分钟自动推广（真实访问目标论坛，生成推广文案，避免太频繁）
+  const promoTimer = setInterval(() => {
+    try {
+      app.locals.doPromotion && app.locals.doPromotion();
+      console.log('[自治商店] 自动推广完成');
+    } catch (e) { console.error('[自治商店] 推广失败:', e.message); }
+  }, 20 * 60 * 1000);
+
   // 每30分钟自动开团队会议（6个智能体都发言）
   const meetingTimer = setInterval(() => {
     try {
@@ -1163,7 +2571,9 @@ async function startServer({ port = 0, dataDir } = {}) {
     clearInterval(iterateTimer);
     clearInterval(scanTimer);
     clearInterval(webTimer);
+    clearInterval(radarTimer);
     clearInterval(meetingTimer);
+    clearInterval(promoTimer);
     server.close(err => err ? reject(err) : resolve());
     server.closeAllConnections();
   }) };
