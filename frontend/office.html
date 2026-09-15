@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能体办公区 | Fantasy3D 自治商店</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui;}
+body{background:#0a0f14;color:#e9edf2;min-height:100vh;}
+.header{background:#111a22;border-bottom:1px solid #222f3b;padding:12px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+.brand{display:flex;gap:10px;align-items:center;text-decoration:none;}
+.logo{width:32px;height:32px;border:1px solid #c9a96e;color:#c9a96e;display:grid;place-items:center;border-radius:4px;font-weight:bold;}
+.brand-title{color:#fff;font-size:16px;font-weight:bold;}
+.brand-sub{color:#8a98a5;font-size:11px;}
+.nav a{color:#b0bcc7;text-decoration:none;margin-left:16px;font-size:14px;}
+.nav a.active{color:#c9a96e;}
+.clock{color:#71d085;font-family:monospace;font-size:14px;}
+.office-wrap{max-width:1400px;margin:0 auto;padding:16px 20px;}
+.office-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;}
+.office-title h2{color:#c9a96e;font-size:20px;}
+.office-title .status{color:#71d085;font-size:13px;}
+/* 2D办公区场景 */
+.scene{position:relative;width:100%;min-width:800px;height:480px;background:linear-gradient(180deg,#2a3a4d 0%,#1e2d3d 55%,#3d2e1e 55%,#4a3826 100%);border-radius:14px;border:2px solid #3a4a5d;overflow:hidden;}
+/* 墙壁 */
+.wall-deco{position:absolute;top:10px;left:50%;transform:translateX(-50%);color:#c9a96e;font-size:16px;font-weight:bold;letter-spacing:6px;opacity:0.5;}
+.window{position:absolute;top:25px;width:70px;height:45px;background:linear-gradient(135deg,#4a90d9,#2a6ab9);border:2px solid #5aa0e9;border-radius:4px;opacity:0.6;}
+.window.left{left:25px;}
+.window.right{right:25px;}
+/* 店长办公室 */
+.manager-office{position:absolute;top:55px;right:15px;width:150px;height:110px;background:rgba(201,169,110,0.08);border:2px solid #c9a96e;border-radius:8px;}
+.manager-office .label{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:#c9a96e;color:#0d1217;font-size:10px;padding:2px 10px;border-radius:4px;font-weight:bold;white-space:nowrap;}
+/* 会议室 */
+.meeting-room{position:absolute;top:55px;left:15px;width:180px;height:110px;background:rgba(113,208,133,0.06);border:2px dashed #71d085;border-radius:8px;}
+.meeting-room .label{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:#71d085;color:#0d1217;font-size:10px;padding:2px 10px;border-radius:4px;font-weight:bold;white-space:nowrap;}
+.meeting-table{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:90px;height:90px;background:radial-gradient(circle,#8b6914,#6b4f0f);border:3px solid #c9a96e;border-radius:50%;box-shadow:0 4px 12px rgba(0,0,0,0.4);}
+/* 工位 */
+.desk{position:absolute;width:70px;height:50px;background:linear-gradient(180deg,#5a4a3a,#4a3a2a);border:2px solid #6a5a4a;border-radius:4px;}
+.desk .monitor{position:absolute;top:-18px;left:50%;transform:translateX(-50%);width:36px;height:24px;background:#1a2a3a;border:2px solid #3a5a7a;border-radius:3px;}
+.desk .monitor.on{background:#2a4a6a;box-shadow:0 0 8px rgba(74,144,217,0.5);}
+.desk .chair{position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);width:24px;height:14px;background:#3a3a4a;border-radius:4px 4px 0 0;}
+/* 智能体角色 */
+.agent{position:absolute;transition:all 1.2s ease-in-out;z-index:10;}
+.agent .body{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:20px;position:relative;border:2px solid;box-shadow:0 2px 8px rgba(0,0,0,0.4);}
+.agent .name{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:bold;white-space:nowrap;padding:1px 6px;border-radius:3px;}
+.agent .bubble{position:absolute;top:-50px;left:50%;transform:translateX(-50%);background:#fff;color:#333;font-size:10px;padding:4px 8px;border-radius:6px;max-width:140px;text-align:center;line-height:1.3;box-shadow:0 2px 8px rgba(0,0,0,0.3);white-space:normal;word-break:break-all;}
+.agent .bubble::after{content:'';position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);border-left:5px solid transparent;border-right:5px solid transparent;border-top:5px solid #fff;}
+.agent.working .body{animation:bob 2s ease-in-out infinite;}
+.agent.walking .body{animation:walk 0.5s ease-in-out infinite;}
+.agent.walking#agent-inspector .body{animation:axeSwing 0.4s ease-in-out infinite;}
+@keyframes axeSwing{0%,100%{transform:translateY(-4px) rotate(-15deg);}50%{transform:translateY(-4px) rotate(15deg);}}
+@keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
+@keyframes walk{0%,100%{transform:translateY(0) rotate(-3deg);}50%{transform:translateY(-4px) rotate(3deg);}}
+/* 状态条 */
+.status-bar{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.status-chip{background:#111a22;border:1px solid #222f3b;border-radius:6px;padding:6px 10px;font-size:11px;display:flex;align-items:center;gap:6px;}
+.status-chip .dot{width:8px;height:8px;border-radius:50%;}
+.status-chip .dot.online{background:#71d085;animation:pulse 2s infinite;}
+.status-chip .dot.working{background:#e6b249;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+/* 会议内容面板 */
+.meeting-panel{margin-top:12px;background:#111a22;border:1px solid #222f3b;border-radius:10px;padding:14px;display:none;}
+.meeting-panel.active{display:block;}
+.meeting-panel h4{color:#71d085;margin-bottom:8px;font-size:14px;}
+.meeting-panel .meeting-content{color:#b0bcc7;font-size:13px;line-height:1.7;white-space:pre-wrap;}
+.meeting-panel .meeting-time{color:#8a98a5;font-size:11px;margin-top:8px;}
+/* 响应式 */
+@media(max-width:768px){
+  .scene{height:400px;}
+  .desk{width:55px;height:40px;}
+  .agent .body{width:30px;height:30px;font-size:16px;}
+  .manager-office{width:110px;height:85px;}
+  .meeting-room{width:130px;height:85px;}
+  .meeting-table{width:65px;height:65px;}
+}
+@media(max-width:480px){
+  .scene{height:350px;}
+  .office-title h2{font-size:16px;}
+  .nav a{margin-left:10px;font-size:12px;}
+}
+</style>
+</head>
+<body>
+<header class="header">
+  <a href="store.html" class="brand">
+    <span class="logo">寺</span>
+    <span><span class="brand-title">Fantasy 3D</span><br><span class="brand-sub">AI 自治资产商店</span></span>
+  </a>
+  <nav class="nav">
+    <a href="store.html">商店</a>
+    <a href="office.html" class="active">办公区</a>
+    <a href="agents.html">智能体</a>
+    <a href="orders.html">订单</a>
+    <a href="about.html">关于</a>
+  </nav>
+  <div class="clock" id="clock">--:--:--</div>
+</header>
+
+<div class="office-wrap">
+  <div class="office-title">
+    <h2>🏢 智能体办公区 · 实时监控</h2>
+    <span class="status" id="overallStatus">● 全员在线</span>
+  </div>
+
+  <!-- 2D办公区场景 -->
+  <div class="scene" id="scene">
+    <div class="wall-deco">FANTASY3D 总部</div>
+    <div class="window left"></div>
+    <div class="window right"></div>
+
+    <!-- 店长办公室 -->
+    <div class="manager-office">
+      <div class="label">👔 店长室</div>
+    </div>
+
+    <!-- 会议室 -->
+    <div class="meeting-room">
+      <div class="label">🤝 会议室</div>
+      <div class="meeting-table"></div>
+    </div>
+
+    <!-- 工位（6个普通员工）由JS动态生成 -->
+    <!-- 智能体角色由JS动态生成 -->
+  </div>
+
+  <!-- 状态条 -->
+  <div class="status-bar" id="statusBar"></div>
+
+  <!-- 会议内容面板 -->
+  <div class="meeting-panel" id="meetingPanel">
+    <h4>📋 正在开会 · 会议记录</h4>
+    <div class="meeting-content" id="meetingContent">加载中...</div>
+    <div class="meeting-time" id="meetingTime"></div>
+  </div>
+</div>
+
+<script>
+// 智能体配置（东北胡子风格名号）
+const AGENTS = [
+  {id:'manager', name:'大当家', role:'店长', emoji:'👔', color:'#c9a96e', desk:null, office:{x:75,y:95}},
+  {id:'researcher', name:'插千的', role:'调研员', emoji:'🔍', color:'#4a90d9', desk:{x:40,y:280}},
+  {id:'recommendation', name:'炮头', role:'推荐官', emoji:'📢', color:'#e67e22', desk:{x:165,y:280}},
+  {id:'support', name:'水香', role:'接待员', emoji:'😊', color:'#9b59b6', desk:{x:290,y:280}},
+  {id:'order', name:'粮台', role:'订单员', emoji:'📦', color:'#1abc9c', desk:{x:415,y:280}},
+  {id:'listing', name:'翻垛的', role:'生产员', emoji:'✨', color:'#e74c3c', desk:{x:540,y:280}},
+  {id:'inspector', name:'总稽查', role:'监管员', emoji:'🪓', color:'#f1c40f', desk:{x:665,y:280}}
+];
+
+// 会议桌周围的座位位置（圆形分布）
+const MEETING_SEATS = [
+  {x:60,y:95}, {x:100,y:75}, {x:150,y:70}, {x:195,y:80},
+  {x:210,y:110}, {x:180,y:135}, {x:120,y:140}
+];
+
+let agentStates = {};
+let isMeeting = false;
+
+// 初始化场景
+function initScene() {
+  const scene = document.getElementById('scene');
+  // 创建工位
+  AGENTS.forEach(a => {
+    if (a.desk) {
+      const desk = document.createElement('div');
+      desk.className = 'desk';
+      desk.id = 'desk-' + a.id;
+      desk.style.left = a.desk.x + 'px';
+      desk.style.top = a.desk.y + 'px';
+      desk.innerHTML = '<div class="monitor on" id="monitor-'+a.id+'"></div><div class="chair"></div>';
+      scene.appendChild(desk);
+    }
+    // 创建智能体角色
+    const agent = document.createElement('div');
+    agent.className = 'agent working';
+    agent.id = 'agent-' + a.id;
+    agent.innerHTML = `
+      <div class="body" style="background:${a.color}22;border-color:${a.color};">${a.emoji}</div>
+      <div class="name" style="background:${a.color};color:#fff;">${a.name}·${a.role}</div>
+      <div class="bubble" id="bubble-${a.id}" style="display:none;"></div>
+    `;
+    scene.appendChild(agent);
+    // 初始位置
+    setAgentPosition(a.id, a.desk ? a.desk.x + 17 : a.office.x, a.desk ? a.desk.y - 30 : a.office.y);
+  });
+}
+
+// 设置智能体位置
+function setAgentPosition(id, x, y) {
+  const agent = document.getElementById('agent-' + id);
+  if (agent) {
+    agent.style.left = x + 'px';
+    agent.style.top = y + 'px';
+  }
+}
+
+// 显示对话气泡
+function showBubble(id, text) {
+  const bubble = document.getElementById('bubble-' + id);
+  if (bubble) {
+    bubble.textContent = text;
+    bubble.style.display = 'block';
+    clearTimeout(bubble._timer);
+    bubble._timer = setTimeout(() => { bubble.style.display = 'none'; }, 5000);
+  }
+}
+
+// 更新时钟
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('zh-CN');
+}
+
+// 获取智能体状态
+async function fetchAgentStates() {
+  try {
+    const res = await fetch('/api/agents');
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      data.forEach(a => { agentStates[a.role || a.id] = a; });
+      updateScene();
+      updateStatusBar();
+    }
+  } catch(e) { console.log('获取状态失败', e); }
+}
+
+// 获取会议状态
+async function fetchMeetingState() {
+  try {
+    const res = await fetch('/api/store/meetings');
+    const data = await res.json();
+    if (data.meetings && data.meetings.length > 0) {
+      const latest = data.meetings[0];
+      const now = Date.now();
+      const meetingTime = new Date(latest.timestamp || latest.time || Date.now()).getTime();
+      // 30分钟内的会议视为正在进行
+      if (now - meetingTime < 30 * 60 * 1000) {
+        isMeeting = true;
+        showMeeting(latest);
+        return;
+      }
+    }
+    isMeeting = false;
+    hideMeeting();
+  } catch(e) {}
+}
+
+// 更新场景
+function updateScene() {
+  AGENTS.forEach(a => {
+    const state = agentStates[a.id];
+    const agentEl = document.getElementById('agent-' + a.id);
+    const monitor = document.getElementById('monitor-' + a.id);
+    if (!agentEl) return;
+
+    if (isMeeting) {
+      // 开会时走到会议室
+      const idx = AGENTS.indexOf(a);
+      const seat = MEETING_SEATS[idx % MEETING_SEATS.length];
+      setAgentPosition(a.id, seat.x, seat.y);
+      agentEl.className = 'agent working';
+      if (monitor) monitor.classList.remove('on');
+    } else if (a.id === 'inspector' && state && state.status === 'working') {
+      // 监管员工作时在办公区巡查（来回走动）
+      agentEl.className = 'agent walking';
+      const patrolX = 380 + Math.sin(Date.now() / 2000) * 300;
+      setAgentPosition(a.id, patrolX, 250);
+      showBubble(a.id, '巡查中...' + (state.currentTask || ''));
+      if (monitor) monitor.classList.add('on');
+    } else {
+      // 工作时在工位
+      if (a.desk) {
+        setAgentPosition(a.id, a.desk.x + 17, a.desk.y - 30);
+      } else {
+        setAgentPosition(a.id, a.office.x, a.office.y);
+      }
+      agentEl.className = state && state.status === 'working' ? 'agent working' : 'agent';
+      if (monitor) monitor.classList.toggle('on', state ? state.status === 'working' : true);
+      if (state && state.currentTask && state.status === 'working') {
+        showBubble(a.id, state.currentTask.substring(0, 30));
+      }
+    }
+  });
+}
+
+// 更新状态条
+function updateStatusBar() {
+  const bar = document.getElementById('statusBar');
+  bar.innerHTML = '';
+  let workingCount = 0;
+  AGENTS.forEach(a => {
+    const state = agentStates[a.id];
+    const status = state ? state.status : 'idle';
+    if (status === 'working') workingCount++;
+    const chip = document.createElement('div');
+    chip.className = 'status-chip';
+    chip.innerHTML = `<span class="dot ${status === 'working' ? 'working' : 'online'}"></span>${a.emoji} ${a.name}·${a.role}：${status === 'working' ? '工作中' : '在线'}`;
+    bar.appendChild(chip);
+  });
+  document.getElementById('overallStatus').textContent = `● ${workingCount}人工作中 · ${AGENTS.length - workingCount}人在线`;
+}
+
+// 显示会议
+function showMeeting(meeting) {
+  const panel = document.getElementById('meetingPanel');
+  panel.classList.add('active');
+  document.getElementById('meetingContent').textContent = meeting.summary || meeting.content || JSON.stringify(meeting, null, 2).substring(0, 500);
+  document.getElementById('meetingTime').textContent = '会议时间：' + new Date(meeting.timestamp || meeting.time).toLocaleString('zh-CN');
+}
+
+function hideMeeting() {
+  document.getElementById('meetingPanel').classList.remove('active');
+}
+
+// 响应式调整位置
+function adjustForScreen() {
+  const w = window.innerWidth;
+  if (w < 768) {
+    // 小屏幕调整工位位置
+    const positions = [
+      {id:'researcher', x:30, y:240}, {id:'recommendation', x:110, y:240},
+      {id:'support', x:190, y:240}, {id:'order', x:270, y:240},
+      {id:'listing', x:350, y:240}, {id:'inspector', x:430, y:240}
+    ];
+    positions.forEach(p => {
+      const a = AGENTS.find(x => x.id === p.id);
+      if (a) a.desk = p;
+    });
+  }
+}
+
+// 初始化
+window.addEventListener('load', () => {
+  adjustForScreen();
+  initScene();
+  updateClock();
+  setInterval(updateClock, 1000);
+  fetchAgentStates();
+  fetchMeetingState();
+  setInterval(fetchAgentStates, 5000);
+  setInterval(fetchMeetingState, 15000);
+  setInterval(updateScene, 1000);
+});
+window.addEventListener('resize', () => { adjustForScreen(); initScene(); });
+</script>
+</body>
+</html>
