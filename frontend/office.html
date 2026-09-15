@@ -135,6 +135,12 @@ body{background:#0a0f14;color:#e9edf2;min-height:100vh;}
     </div>
   </div>
 
+  <div class="stats-panel" style="margin-top:12px;">
+    <h4>📣 推广渠道接入</h4>
+    <div class="status-bar" id="channelBar"><span class="status-chip">正在读取渠道状态…</span></div>
+    <div class="legend">渠道需要通过各平台官方登录和验证后才会启用发布。推广员只会向已连接渠道投递对应文案，并保存发布链接。</div>
+  </div>
+
   <div class="stats-panel">
     <h4>📊 商店访问统计</h4>
     <div class="stats-grid">
@@ -332,6 +338,19 @@ async function syncWorkflow(){
     document.getElementById('workflowOrders').textContent=workflow.realOrders || 0;
   }catch(_){}
 }
+async function syncChannels(){
+  try{
+    const result=await fetch('/api/store/channels');
+    const data=await result.json();
+    const bar=document.getElementById('channelBar');
+    bar.innerHTML='';
+    (data.channels || []).forEach(channel=>{
+      const item=document.createElement('span'); item.className='status-chip';
+      item.textContent=channel.name+'：'+(channel.status==='connected'?'已连接':'待连接');
+      bar.appendChild(item);
+    });
+  }catch(_){}
+}
 async function runWorkflow(){
   const button=document.getElementById('workflowButton'); button.disabled=true;
   try{ await fetch('/api/store/workflow/run',{method:'POST'}); await syncOffice(); await syncWorkflow(); }
@@ -349,7 +368,7 @@ window.addEventListener('load',()=>{
   document.getElementById('meetingButton').addEventListener('click',requestMeeting);
   document.getElementById('workflowButton').addEventListener('click',runWorkflow);
   fetchStats();setInterval(fetchStats,30000);
-  syncOffice();syncWorkflow();setInterval(syncOffice,10000);setInterval(syncWorkflow,10000);
+  syncOffice();syncWorkflow();syncChannels();setInterval(syncOffice,10000);setInterval(syncWorkflow,10000);setInterval(syncChannels,10000);
   setInterval(updateBar,1500);
 });
 </script>

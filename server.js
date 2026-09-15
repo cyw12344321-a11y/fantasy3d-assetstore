@@ -2496,6 +2496,17 @@ function createStoreApp({ dataDir }) {
     if (!Array.isArray(state.priceProposals)) state.priceProposals = [];
     return state.tasks;
   }
+  function channelRegistry() {
+    if (!Array.isArray(state.channels)) {
+      state.channels = [
+        { id: 'itchio', name: 'itch.io 开发日志', connectUrl: 'https://itch.io/login', status: 'not_connected', purpose: '发布开发日志和商品更新' },
+        { id: 'youtube', name: 'YouTube', connectUrl: 'https://accounts.google.com/', status: 'not_connected', purpose: '发布商品演示视频' },
+        { id: 'search-console', name: 'Google Search Console', connectUrl: 'https://search.google.com/search-console/', status: 'not_connected', purpose: '提交站点并查看搜索表现' },
+        { id: 'developer-community', name: '开发者社区', connectUrl: null, status: 'not_connected', purpose: '按社区规则发布案例和教程' }
+      ];
+    }
+    return state.channels;
+  }
   function createTask(agentId, title, evidence, status = 'done') {
     const now = new Date().toISOString();
     const task = { id: 'TASK-' + randomUUID(), agentId, title, status, evidence: evidence || [], createdAt: now, completedAt: status === 'done' ? now : null };
@@ -2721,6 +2732,15 @@ function createStoreApp({ dataDir }) {
   app.get('/api/store/tasks', (req, res) => {
     taskLedger();
     res.json({ tasks: state.tasks.slice(-30).reverse(), promotionDrafts: state.promotionDrafts.slice(-20).reverse(), researchCandidates: state.researchCandidates.slice(-20).reverse() });
+  });
+  app.get('/api/store/channels', (req, res) => res.json({ channels: channelRegistry() }));
+  app.post('/api/store/channels/:id/request-connection', (req, res) => {
+    const channel = channelRegistry().find(item => item.id === req.params.id);
+    if (!channel) return res.status(404).json({ error: '渠道不存在。' });
+    channel.status = 'waiting_for_owner_verification';
+    createTask('recommendation', '请求连接推广渠道：' + channel.name, ['需要通过该平台的官方登录、验证码或授权步骤完成连接', '连接成功后才允许自动化发布队列']);
+    commit(state);
+    res.status(201).json({ success: true, channel, message: '已创建连接请求。请在官方页面完成登录和验证；系统不会代替你注册或绕过验证。' });
   });
   app.get('/api/store/workflow', (req, res) => res.json(workflowSummary()));
   app.post('/api/store/workflow/run', (req, res) => {
