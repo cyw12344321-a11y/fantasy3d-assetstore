@@ -3081,7 +3081,8 @@ function createStoreApp({ dataDir }) {
   return app;
 }
 
-async function startServer({ port = 0, dataDir, host = process.env.HOST || '127.0.0.1' } = {}) {
+// Render only exposes ports that listen on all interfaces. Local access still works on 127.0.0.1.
+async function startServer({ port = 0, dataDir, host = process.env.HOST || '0.0.0.0' } = {}) {
   const app = createStoreApp({ dataDir: dataDir || path.join(process.env.LOCALAPPDATA || os.homedir(), 'Fantasy3D', 'store-data') });
   const server = await new Promise((resolve, reject) => {
     const listener = app.listen(port, host, () => resolve(listener));
@@ -3170,8 +3171,8 @@ async function startServer({ port = 0, dataDir, host = process.env.HOST || '127.
 }
 
 if (require.main === module) {
-  startServer({ port: Number(process.env.PORT || 4000), dataDir: process.env.FANTASY3D_DATA_DIR }).then(service => {
-    console.log(`Fantasy3D local demo: ${service.url}`);
+  startServer({ port: Number(process.env.PORT || 4000), dataDir: process.env.FANTASY3D_DATA_DIR, host: process.env.HOST || '0.0.0.0' }).then(service => {
+    console.log(`Fantasy3D server listening: ${service.url}`);
     for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => service.close().then(() => process.exit(0)));
   }).catch(error => { console.error(error.message); process.exitCode = 1; });
 }
