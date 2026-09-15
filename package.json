@@ -1,0 +1,55 @@
+{
+  "name": "fantasy3d-store",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fantasy3D local asset store demo — simulated orders, no payment processing",
+  "author": "Su Mingheng",
+  "main": "electron-main.js",
+  "scripts": {
+    "start": "node server.js",
+    "electron": "electron .",
+    "test": "node --test tests/*.test.js",
+    "build": "electron-builder --win nsis --x64",
+    "build:dir": "electron-builder --win --x64 --dir"
+  },
+  "dependencies": {
+    "express": "5.2.1",
+    "fbx2gltf": "^0.9.7-p1",
+    "obj2gltf": "^3.2.0"
+  },
+  "devDependencies": {
+    "electron": "44.3.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.fantasy3d.store",
+    "productName": "Fantasy3D 资产商店",
+    "artifactName": "Fantasy3D-Store-Setup-${version}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron-main.js",
+      "server.js",
+      "frontend/**/*",
+      "package.json",
+      "README.md"
+    ],
+    "asar": true,
+    "win": {
+      "target": "nsis",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Fantasy3D 资产商店",
+      "runAfterFinish": false,
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}

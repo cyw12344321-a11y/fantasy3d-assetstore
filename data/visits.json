@@ -1,0 +1,78 @@
+{
+  "total": 10,
+  "today": 10,
+  "todayDate": "2026-09-15",
+  "uniqueIPs": [
+    "127.0.0.1"
+  ],
+  "pages": {
+    "/office.html": 5,
+    "/store.html": 3,
+    "/agents.html": 2
+  },
+  "referrers": {
+    "直接访问": 10
+  },
+  "recent": [
+    {
+      "time": "2026-09-15T09:31:51.552Z",
+      "ip": "127.0.0.1",
+      "page": "/agents.html",
+      "referrer": "直接访问"
+    },
+    {
+      "time": "2026-09-15T09:31:48.410Z",
+      "ip": "127.0.0.1",
+      "page": "/office.html",
+      "referrer": "直接访问"
+    },
+    {
+      "time": "2026-09-15T09:31:46.408Z",
+      "ip": "127.0.0.1",
+      "page": "/store.html",
+      "referrer": "直接访问"
+    },
+    {
+      "time": "2026-09-15T09:31:41.067Z",
+      "ip": "127.0.0.1",
+      "page": "/agents.html",
+      "referrer": "直接访问"
+    },
+    {
+      "time": "2026-09-15T09:31:37.033Z",
+      "ip": "127.0.0.1",
+      "page": "/office.html",
+      "referrer": "直接访问"
+    },
+    {
+      "time": "2026-09-15T09:31:33.704Z",
+      "ip": "127.0.0.1",
+      "page": "/store.html",
+      "referrer": "直接访问"
+    },
+    {
+      "time": "2026-09-15T09:09:31.143Z",
+      "ip": "127.0.0.1",
+      "page": "/office.html",
+      "referrer": "直接访问"
+    },
+    {
+      "time": "2026-09-15T09:08:01.997Z",
+      "ip": "127.0.0.1",
+      "page": "/store.html",
+      "referrer": "直接访问"
+    },
+    {
+      "time": "2026-09-15T09:07:39.520Z",
+      "ip": "127.0.0.1",
+      "page": "/office.html",
+      "referrer": "直接访问"
+    },
+    {
+      "time": "2026-09-15T09:07:20.290Z",
+      "ip": "127.0.0.1",
+      "page": "/office.html",
+      "referrer": "直接访问"
+    }
+  ]
+}

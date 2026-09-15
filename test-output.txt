@@ -1,0 +1,88 @@
+﻿TAP version 13
+# Subtest: 6 agents are listed with roles and online status
+ok 1 - 6 agents are listed with roles and online status
+  ---
+  duration_ms: 71.5782
+  type: 'test'
+  ...
+# Subtest: store consciousness exposes team, stats and mantra
+ok 2 - store consciousness exposes team, stats and mantra
+  ---
+  duration_ms: 15.618
+  type: 'test'
+  ...
+# Subtest: self-iteration increments counter and logs actions
+ok 3 - self-iteration increments counter and logs actions
+  ---
+  duration_ms: 44.997
+  type: 'test'
+  ...
+# Subtest: team meeting produces opinions, decision and action items
+ok 4 - team meeting produces opinions, decision and action items
+  ---
+  duration_ms: 19.8766
+  type: 'test'
+  ...
+# Subtest: autonomous production creates a new published product
+ok 5 - autonomous production creates a new published product
+  ---
+  duration_ms: 27.0189
+  type: 'test'
+  ...
+# Subtest: manager agent can trigger iteration via chat
+ok 6 - manager agent can trigger iteration via chat
+  ---
+  duration_ms: 18.241
+  type: 'test'
+  ...
+# Subtest: researcher agent provides market analysis
+ok 7 - researcher agent provides market analysis
+  ---
+  duration_ms: 13.0355
+  type: 'test'
+  ...
+# Subtest: multi-language: English input gets English reply
+ok 8 - multi-language: English input gets English reply
+  ---
+  duration_ms: 10.7224
+  type: 'test'
+  ...
+# Subtest: Japanese input detected and gets English fallback reply
+ok 9 - Japanese input detected and gets English fallback reply
+  ---
+  duration_ms: 11.11
+  type: 'test'
+  ...
+# Subtest: supported languages endpoint returns 8 languages
+ok 10 - supported languages endpoint returns 8 languages
+  ---
+  duration_ms: 7.6565
+  type: 'test'
+  ...
+# Subtest: conversation history persists across restart
+ok 11 - conversation history persists across restart
+  ---
+  duration_ms: 20.2371
+  type: 'test'
+  ...
+# Subtest: iteration history is retrievable
+ok 12 - iteration history is retrievable
+  ---
+  duration_ms: 14.4826
+  type: 'test'
+  ...
+# Subtest: knowledge base grows from interactions
+ok 13 - knowledge base grows from interactions
+  ---
+  duration_ms: 13.4238
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 606.3102

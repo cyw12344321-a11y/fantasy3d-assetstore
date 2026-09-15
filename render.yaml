@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: fantasy3d-assetstores
+    runtime: node
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/app-info
+    envVars:
+      - key: NODE_VERSION
+        value: 22.12.0
+      - key: HOST
+        value: 0.0.0.0
+      - key: ALLOWED_HOST
+        value: fantasy3d-assetstores.onrender.com
