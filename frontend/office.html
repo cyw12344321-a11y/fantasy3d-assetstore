@@ -27,23 +27,30 @@ body{background:#0a0f14;color:#e9edf2;min-height:100vh;}
   border-radius:14px;border:2px solid #3a4a5d;overflow:hidden;
 }
 
-/* 小人：定位用 left/top，内部用 transform 做动画 */
+/* 2D 卡通员工：不再依赖尺寸不一致的外部人物图片 */
 .agent{
-  position:absolute;z-index:5;
-  width:8.5%;
-  background-size:contain;background-repeat:no-repeat;background-position:bottom center;
-  image-rendering:pixelated;
+  --coat:#3f7ccc;--hair:#2d1d16;--skin:#f2c49c;
+  position:absolute;z-index:5;width:7%;height:22%;
   transition:left 2.2s linear, top 2.2s linear;
   filter:drop-shadow(1px 2px 3px rgba(0,0,0,0.35));
 }
-.agent::after{content:'';display:block;padding-bottom:185%;}
-.agent.manager{background-image:url('1-大当家.png');}
-.agent.researcher{background-image:url('2-插千的.png');}
-.agent.recommendation{background-image:url('3-炮头.png');}
-.agent.support{background-image:url('4-水香.png');}
-.agent.order{background-image:url('5-粮台.png');}
-.agent.listing{background-image:url('6-翻垛的.png');}
-.agent.inspector{background-image:url('7-总稽查.png');z-index:8;}
+.agent.manager{--coat:#9b3f36;--hair:#1e1815;}
+.agent.researcher{--coat:#477b58;--hair:#4a2c1b;}
+.agent.recommendation{--coat:#3e79b8;--hair:#20150f;}
+.agent.support{--coat:#bb5b79;--hair:#513025;}
+.agent.order{--coat:#8b6838;--hair:#25211d;}
+.agent.listing{--coat:#7155a3;--hair:#39251e;}
+.agent.inspector{--coat:#555d69;--hair:#171717;z-index:8;}
+.figure{position:absolute;left:50%;bottom:0;width:78%;height:100%;transform:translateX(-50%);}
+.head{position:absolute;left:29%;top:4%;width:43%;height:29%;border-radius:48% 48% 44% 44%;background:var(--skin);border:2px solid #422c24;z-index:3;}
+.head::before{content:'';position:absolute;left:-5%;top:-15%;width:110%;height:42%;border-radius:55% 55% 30% 30%;background:var(--hair);}
+.head::after{content:'• •';position:absolute;top:45%;left:19%;color:#382016;font-size:10px;letter-spacing:4px;white-space:nowrap;}
+.body{position:absolute;left:20%;top:30%;width:60%;height:46%;border-radius:34% 34% 12% 12%;background:var(--coat);border:2px solid #30241f;z-index:2;}
+.body::after{content:'';position:absolute;left:42%;top:5%;height:83%;border-left:2px solid rgba(255,255,255,.45);}
+.arm{position:absolute;top:37%;width:24%;height:31%;border-radius:15px;background:var(--skin);border:2px solid #422c24;z-index:1;}
+.arm.left{left:8%;transform:rotate(24deg);}.arm.right{right:8%;transform:rotate(-24deg);}
+.lap{position:absolute;left:15%;bottom:0;width:70%;height:24%;border-radius:55% 55% 12% 12%;background:#27313b;border:2px solid #20252b;}
+.agent.walk .lap{display:none;}.agent.walk .body{height:52%;}.agent.walk .arm{top:43%;}
 
 .agent .name{
   position:absolute;top:-18px;left:50%;transform:translateX(-50%);
@@ -156,7 +163,7 @@ function init(){
     el.className = 'agent '+a.cls;
     el.id='ag-'+a.id;
     el.style.width = a.h+'%';
-    el.innerHTML = `<div class="name">${a.name}</div><div class="bubble" id="bb-${a.id}"></div>`;
+    el.innerHTML = `<div class="name">${a.name}</div><div class="bubble" id="bb-${a.id}"></div><div class="figure" aria-hidden="true"><div class="head"></div><div class="body"></div><div class="arm left"></div><div class="arm right"></div><div class="lap"></div></div>`;
     scene.appendChild(el);
     els[a.id]=el;
     sit(a);
