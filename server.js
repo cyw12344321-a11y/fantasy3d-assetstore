@@ -3058,6 +3058,9 @@ function createStoreApp({ dataDir }) {
     next();
   });
 
+  // 公开页面按原项目根目录的同名文件提供；先迁回的页面不再被 frontend 副本覆盖。
+  // 其余静态资源仍可从现有目录读取，避免影响已经在售的模型和商品。
+  app.get('/office.html', (req, res) => res.sendFile(path.join(__dirname, 'office.html')));
   app.use(express.static(path.join(__dirname, 'frontend'), { dotfiles: 'deny' }));
   app.use((err, req, res, next) => {
     if (res.headersSent) return next(err);
