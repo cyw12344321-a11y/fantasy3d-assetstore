@@ -427,51 +427,59 @@ function createStoreApp({ dataDir }) {
   const agents = [
     {
       id: 'manager',
-      name: '店长智能体',
-      avatar: '🧠',
-      description: '商店大脑，统筹全局，协调团队，触发自我迭代与进化',
+      name: '大当家',
+      avatar: '👔',
+      description: '店长，山寨之主，统筹全局，协调团队，触发自我迭代与进化',
       capabilities: ['团队协调', '战略决策', '自我迭代', '学习进化'],
       role: 'leader'
     },
     {
       id: 'researcher',
-      name: '调研智能体',
+      name: '插千的',
       avatar: '🔍',
-      description: '市场调研、趋势分析、用户需求洞察，为团队提供决策依据',
-      capabilities: ['市场分析', '趋势预测', '用户研究', '数据洞察'],
+      description: '调研员，打探情报，市场调研、趋势分析、全网采集免费资源',
+      capabilities: ['市场分析', '趋势预测', '资源采集', '商机雷达'],
       role: 'research'
     },
     {
       id: 'recommendation',
-      name: '推荐智能体',
-      avatar: '🎯',
-      description: '根据用户需求智能推荐资产，发现商机，优化商品结构',
-      capabilities: ['场景搭配推荐', '类别筛选', '性价比分析', '商机发现'],
+      name: '炮头',
+      avatar: '📢',
+      description: '推荐官，冲锋推广，根据用户需求智能推荐资产，主动推销找客',
+      capabilities: ['智能推荐', '全球推广', '商机发现', '主动获客'],
       role: 'sales'
     },
     {
       id: 'support',
-      name: '接待智能体',
-      avatar: '💬',
-      description: '7×24小时客户接待，售前咨询、售后服务，收集用户反馈',
-      capabilities: ['购买咨询', '下载帮助', '退款政策', '反馈收集'],
+      name: '水香',
+      avatar: '😊',
+      description: '接待员，站岗迎客，7×24小时客户接待，售前咨询、售后服务',
+      capabilities: ['客户接待', '购买咨询', '售后服务', '反馈收集'],
       role: 'service'
     },
     {
       id: 'order',
-      name: '订单智能体',
+      name: '粮台',
       avatar: '📦',
-      description: '订单全生命周期管理，状态跟踪，下载链接分发',
-      capabilities: ['订单查询', '下载链接', '状态跟踪', '数据分析'],
+      description: '订单员，管钱管粮，订单全生命周期管理，智能定价，数据分析',
+      capabilities: ['订单管理', '智能定价', '下载链接', '数据分析'],
       role: 'operations'
     },
     {
       id: 'listing',
-      name: '生产上架智能体',
+      name: '翻垛的',
       avatar: '✨',
-      description: '自主生产商品、生成描述、定价建议、自动上架',
-      capabilities: ['资产生产', '描述生成', '定价建议', '自动上架'],
+      description: '生产员，生产制造，自主生产商品、生成描述、自动上架、质量优化',
+      capabilities: ['资产生产', '描述生成', '自动上架', '质量优化'],
       role: 'production'
+    },
+    {
+      id: 'inspector',
+      name: '总稽查',
+      avatar: '🪓',
+      description: '监管员，千问大模型独立驱动，全店巡查，查重整改，铁面无私',
+      capabilities: ['全店巡查', '查重去重', '价格监管', '质量检查'],
+      role: 'audit'
     }
   ];
 
