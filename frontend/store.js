@@ -202,7 +202,7 @@
     cartModal.showModal();
     cartModal.querySelector(".modal-close").addEventListener("click", () => { cartModal.close(); cartModal.remove(); });
     const buyBtn = cartModal.querySelector(".modal-buy");
-    if (buyBtn) buyBtn.addEventListener("click", () => { alert("结算功能开发中，PayPal收款：130000595@qq.com"); });
+    if (buyBtn) buyBtn.addEventListener("click", () => { window.location.href = "checkout.html"; });
   }
 
   function render() {

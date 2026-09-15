@@ -38,7 +38,7 @@ const AI_CONFIG = {
 
 // ===== 收款配置 =====
 const PAYMENT_CONFIG = {
-  paypalEmail: process.env.PAYPAL_EMAIL || '130000595@qq.com',
+  paypalEmail: process.env.PAYPAL_EMAIL || '',
   paypalMe: process.env.PAYPAL_ME || 'https://paypal.me/SUMINGHENG',
   currency: 'USD'
 };
