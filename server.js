@@ -2500,6 +2500,7 @@ function createStoreApp({ dataDir }) {
     if (!Array.isArray(state.channels)) {
       state.channels = [
         { id: 'itchio', name: 'itch.io 开发日志', connectUrl: 'https://itch.io/login', status: 'not_connected', purpose: '发布开发日志和商品更新' },
+        { id: 'huggingface', name: 'Hugging Face Space', connectUrl: 'https://huggingface.co/', status: 'not_connected', purpose: '发布免费在线演示，把试用用户引导到付费商品页' },
         { id: 'youtube', name: 'YouTube', connectUrl: 'https://accounts.google.com/', status: 'not_connected', purpose: '发布商品演示视频' },
         { id: 'search-console', name: 'Google Search Console', connectUrl: 'https://search.google.com/search-console/', status: 'not_connected', purpose: '提交站点并查看搜索表现' },
         { id: 'developer-community', name: '开发者社区', connectUrl: null, status: 'not_connected', purpose: '按社区规则发布案例和教程' }
