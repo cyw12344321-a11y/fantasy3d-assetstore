@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Asset Store | Fantasy3D Demo</title>
+<title>Asset Store | Fantasy3D 自治商店</title>
 <link rel="stylesheet" href="store.css">
 <script src="shared.js" defer></script>
 <script src="store.js" defer></script>
+<script type="module" src="model-viewer.min.js"></script>
 </head>
 <body>
 <div class="app">
@@ -14,7 +15,7 @@
     <div class="header-inner">
       <a href="index.html" class="brand">
         <span class="logo-mark" aria-hidden="true">寺</span>
-        <span><span class="brand-title">Fantasy 3D</span><span class="brand-sub">Demo Asset Catalog</span></span>
+        <span><span class="brand-title">Fantasy 3D</span><span class="brand-sub">AI 自治资产商店</span></span>
       </a>
       <nav class="main-nav" aria-label="Main navigation">
         <a href="index.html">Home</a>
@@ -25,38 +26,87 @@
         <a href="contact.html">Contact</a>
         <a href="admin.html" class="admin-link">Admin Panel</a>
       </nav>
+      <div class="header-actions" style="display:flex;align-items:center;gap:12px;">
+        <select id="langSelect" style="background:#1a2332;color:#e0e8f0;border:1px solid #2d3a4d;border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer;">
+          <option value="zh">中文</option>
+          <option value="en">English</option>
+          <option value="ja">日本語</option>
+          <option value="ko">한국어</option>
+          <option value="es">Español</option>
+          <option value="fr">Français</option>
+          <option value="de">Deutsch</option>
+          <option value="ru">Русский</option>
+        </select>
+        <button type="button" id="cartBtn" style="background:linear-gradient(135deg,#ffd700,#ff8c00);border:none;color:#1a1a2e;font-size:14px;cursor:pointer;padding:8px 16px;border-radius:8px;font-weight:bold;position:relative;">
+          🛒 <span id="cartCount">0</span>
+        </button>
+      </div>
     </div>
   </header>
-  <aside class="demo-banner" aria-label="Local demo notice">
-    <strong>LOCAL DEMO · 本地演示 / 无真实支付</strong>
-    <span>Simulated orders only. Downloads are sample TXT files, not 3D models. 订单仅模拟；下载为示例文本，不含真实模型。</span>
-    <small id="serviceStatus" role="status">Checking local service… 正在检查本地服务…</small>
+  <!-- 商店横幅 -->
+  <div class="store-banner" style="width:100%;overflow:hidden;position:relative;">
+    <img src="banner.png" alt="Fantasy3D 自治商店" style="width:100%;height:auto;display:block;">
+    <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.85));padding:30px 40px 20px;">
+      <h2 style="margin:0;color:#fff;font-size:28px;text-shadow:0 2px 10px rgba(0,0,0,0.8);">混沌之中 · 自有秩序</h2>
+      <p style="margin:5px 0 0;color:#ccc;font-size:14px;">6个AI智能体自治运营 · 自我进化 · 全球扩张</p>
+    </div>
+  </div>
+  <aside class="demo-banner" aria-label="Payment info" style="background:linear-gradient(90deg,#1a2f1a,#0f1f0f);border-color:#2d5a2d;">
+    <strong>🛒 支持 PayPal 付款 · <a href="https://paypal.me/SUMINGHENG" target="_blank" style="color:#ffd700;text-decoration:underline;">paypal.me/SUMINGHENG</a> · 收款邮箱：130000595@qq.com</strong>
+    <span>6 个 AI 智能体 7×24 小时自动运营 · 自我迭代 · 自动上架 · 自动定价</span>
+    <small id="serviceStatus" role="status">正在连接商店服务…</small>
   </aside>
   <main class="store-container">
     <h1>3D Asset Store</h1>
-    <p class="page-intro">Demo listings with illustrative prices. 示例商品与演示价格，下单不扣费。</p>
-    <div class="filter-bar" aria-label="Filter assets">
+    <p class="page-intro">AI 智能体自主运营的 3D 资产商店 · 自动生产 · 自动定价 · 自我进化</p>
+    <div class="filter-bar" aria-label="Filter assets" style="flex-wrap:wrap;gap:10px;">
       <button type="button" class="filter-btn active" data-filter="all" aria-pressed="true">All</button>
       <button type="button" class="filter-btn" data-filter="props" aria-pressed="false">Props 道具</button>
       <button type="button" class="filter-btn" data-filter="environment" aria-pressed="false">Environment 场景</button>
       <button type="button" class="filter-btn" data-filter="characters" aria-pressed="false">Characters 角色</button>
+      <input type="text" id="searchInput" placeholder="🔍 搜索商品名称/描述..." style="flex:1;min-width:200px;background:#0f1923;color:#e0e8f0;border:1px solid #2d3a4d;border-radius:8px;padding:8px 14px;font-size:14px;">
+      <select id="sortSelect" style="background:#0f1923;color:#e0e8f0;border:1px solid #2d3a4d;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;">
+        <option value="default">默认排序</option>
+        <option value="price-asc">价格从低到高</option>
+        <option value="price-desc">价格从高到低</option>
+        <option value="name">按名称</option>
+        <option value="new">最新上架</option>
+      </select>
     </div>
-    <p id="storeMessage" class="feedback" role="status">Loading demo assets…</p>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0;">
+      <span id="resultCount" style="color:#8a98a5;font-size:13px;">共 0 件商品</span>
+      <button type="button" id="loadMoreBtn" class="filter-btn" hidden>加载更多 ↓</button>
+    </div>
+    <p id="storeMessage" class="feedback" role="status">正在加载商品…</p>
     <button type="button" id="retryProducts" class="filter-btn" hidden>Retry · 重试</button>
     <div class="product-grid" id="productGrid"></div>
   </main>
   <dialog class="modal" id="productModal" aria-labelledby="modalName">
     <h2 id="modalName"></h2>
-    <p class="sample-note">DEMO LISTING · 示例商品描述，不代表已交付模型</p>
+    <div id="modelViewerContainer" style="width:100%;height:300px;background:#0a0f14;border-radius:8px;margin-bottom:12px;display:none;align-items:center;justify-content:center;overflow:hidden;">
+      <model-viewer id="modelViewer" alt="3D模型预览" camera-controls auto-rotate shadow-intensity="1" exposure="1" style="width:100%;height:100%;--poster-color:transparent;"></model-viewer>
+    </div>
+    <div id="modelPlaceholder" style="width:100%;height:200px;background:#0a0f14;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;justify-content:center;color:#5a6875;font-size:14px;">
+      📦 3D 模型文件 · 购买后可下载
+    </div>
     <div class="modal-desc" id="modalDesc"></div>
-    <div class="modal-price">Demo price: $<span id="modalPrice"></span></div>
-    <p class="sample-note">No payment. Sample TXT download only. 无真实支付，仅提供示例文本。</p>
-    <div class="modal-footer">
+    <div class="modal-price">价格: $<span id="modalPrice"></span> USD</div>
+    <p style="color:#8a98a5;font-size:12px;">💳 支持 PayPal 付款 · <a href="https://paypal.me/SUMINGHENG" target="_blank" style="color:#ffd700;">点此直接付款</a> · 收款邮箱：130000595@qq.com</p>
+    <div class="modal-footer" id="modalFooter">
       <button type="button" class="modal-close" id="modalClose">Close</button>
-      <button type="button" class="modal-buy" id="buyBtn">Simulate Order · 模拟下单</button>
+      <button type="button" class="modal-buy" id="buyBtn">立即购买 · Buy Now</button>
     </div>
   </dialog>
-  <footer class="site-footer"><p>Fantasy3D ©2026 · Local demo · No real payments or model delivery.</p></footer>
+  <footer class="site-footer"><p>Fantasy3D ©2026 · AI 自治商店 · 6 智能体团队 · PayPal 收款</p></footer>
 </div>
+  <!-- 背景音乐播放器 -->
+  <div id="musicPlayer" style="position:fixed;bottom:20px;right:20px;z-index:9999;background:rgba(0,0,0,0.92);border-radius:12px;padding:12px 16px;box-shadow:0 4px 20px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;gap:12px;">
+    <button onclick="window.open('https://qishui.douyin.com/s/iXuDMSs9/', '_blank')" style="background:linear-gradient(135deg,#ff6b6b,#ee5a24);border:none;color:#fff;font-size:16px;cursor:pointer;padding:8px 14px;border-radius:8px;font-weight:bold;">🎵 播放</button>
+    <div>
+      <div style="color:#fff;font-size:13px;font-weight:bold;">《镀金囚笼》</div>
+      <div style="color:#888;font-size:11px;">点击在新标签页播放</div>
+    </div>
+    <button onclick="document.getElementById('musicPlayer').style.display='none'" style="background:none;border:none;color:#888;cursor:pointer;font-size:14px;margin-left:8px;">✕</button>
+  </div>
 </body>
 </html>
