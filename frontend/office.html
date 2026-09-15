@@ -129,6 +129,7 @@ body{background:#0a0f14;color:#e9edf2;min-height:100vh;}
     <div class="stats-grid">
       <div class="stat-card"><div class="num" id="workflowDone">0</div><div class="label">已记录任务</div></div>
       <div class="stat-card"><div class="num" id="workflowDrafts">0</div><div class="label">待审核推广草稿</div></div>
+      <div class="stat-card"><div class="num" id="workflowPricing">0</div><div class="label">待审核价格建议</div></div>
       <div class="stat-card"><div class="num" id="workflowPublished">0</div><div class="label">已发布推广</div></div>
       <div class="stat-card"><div class="num" id="workflowOrders">0</div><div class="label">真实订单</div></div>
     </div>
@@ -326,6 +327,7 @@ async function syncWorkflow(){
     const workflow=await result.json();
     document.getElementById('workflowDone').textContent=workflow.completedTasks || 0;
     document.getElementById('workflowDrafts').textContent=workflow.promotionDrafts || 0;
+    document.getElementById('workflowPricing').textContent=workflow.priceProposals || 0;
     document.getElementById('workflowPublished').textContent=workflow.publishedPromotions || 0;
     document.getElementById('workflowOrders').textContent=workflow.realOrders || 0;
   }catch(_){}

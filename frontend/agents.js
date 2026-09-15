@@ -212,13 +212,13 @@
       const data = await request("/store/pricing/auto", { method: "POST" });
       await loadConsciousness();
       const p = data.pricing;
-      const msg = `💰 自动定价完成！\n\n商品：${p.name}\n原价：¥${p.oldPrice} → 新价：¥${p.newPrice}\n变动：${p.change}\n原因：${p.reason}`;
+      const msg = `💰 价格维护建议已生成\n\n商品：${p.productName}\n当前价格：¥${p.currentPrice}\n建议价格：¥${p.suggestedPrice}\n状态：待审核\n原因：${p.reason}`;
       if (currentAgent && (currentAgent.id === "listing" || currentAgent.id === "manager")) {
         appendMessage("agent", msg, new Date().toISOString());
       } else {
-        alert("定价完成！" + p.name + " ¥" + p.oldPrice + " → ¥" + p.newPrice);
+        alert("价格维护建议已生成，尚未自动改价。");
       }
-      addLog("💰 自动定价", `${p.name} ¥${p.oldPrice}→¥${p.newPrice} (${p.change})`);
+      addLog("💰 价格建议", `${p.productName}：¥${p.currentPrice}（待审核）`);
     } catch (err) {
       alert("定价失败：" + err.message);
     }

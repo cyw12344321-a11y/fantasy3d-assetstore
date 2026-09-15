@@ -456,8 +456,8 @@ function createStoreApp({ dataDir }) {
       id: 'researcher',
       name: '插千的',
       avatar: '🔍',
-      description: '调研员，打探情报，市场调研、趋势分析、全网采集免费资源',
-      capabilities: ['市场分析', '趋势预测', '资源采集', '商机雷达'],
+      description: '商机与资源调研员，记录真实需求、许可来源和可执行机会',
+      capabilities: ['需求分析', '机会雷达', '来源核验', '许可证核对'],
       role: 'research'
     },
     {
@@ -488,8 +488,8 @@ function createStoreApp({ dataDir }) {
       id: 'listing',
       name: '翻垛的',
       avatar: '✨',
-      description: '生产员，生产制造，自主生产商品、生成描述、自动上架、质量优化',
-      capabilities: ['资产生产', '描述生成', '自动上架', '质量优化'],
+      description: '生产与上架员，把机会转成制作简报、商品资料、价格建议和上架检查',
+      capabilities: ['制作简报', '商品资料', '价格建议', '上架检查'],
       role: 'production'
     },
     {
@@ -2493,6 +2493,7 @@ function createStoreApp({ dataDir }) {
     if (!Array.isArray(state.tasks)) state.tasks = [];
     if (!Array.isArray(state.promotionDrafts)) state.promotionDrafts = [];
     if (!Array.isArray(state.researchCandidates)) state.researchCandidates = [];
+    if (!Array.isArray(state.priceProposals)) state.priceProposals = [];
     return state.tasks;
   }
   function createTask(agentId, title, evidence, status = 'done') {
@@ -2511,14 +2512,21 @@ function createStoreApp({ dataDir }) {
   function createPromotionDraft() {
     const product = state.products.find(p => p.status === 'published' && p.filePath && p.licenseStatus === 'approved');
     if (!product) return { success: false, message: '没有已验证授权且可交付的商品；未生成推广草稿。' };
+    const storeUrl = 'https://fantasy3d-assetstores.onrender.com/store.html';
+    const baseText = product.spec?.shortDesc || product.name;
     const draft = {
       id: 'DRAFT-' + randomUUID(), timestamp: new Date().toISOString(), productId: product.productId,
       title: product.name + ' — 3D asset for game developers',
-      body: (product.spec?.shortDesc || product.name) + '\n\nLicense and delivery have been checked. See the store page for details.',
-      tags: ['3d-assets', 'game-development'], status: 'ready_for_review', publishedAt: null
+      body: baseText + '\n\nLicense and delivery have been checked. See the store page for details.',
+      tags: ['3d-assets', 'game-development'], status: 'ready_for_channel_connection', publishedAt: null,
+      channels: [
+        { channel: 'itch.io devlog', status: 'waiting_for_connection', url: storeUrl + '?utm_source=itchio&utm_medium=devlog&utm_campaign=' + product.productId, body: 'New asset: ' + product.name + '. ' + baseText },
+        { channel: 'developer community', status: 'waiting_for_connection', url: storeUrl + '?utm_source=community&utm_medium=post&utm_campaign=' + product.productId, body: 'Sharing a production-ready 3D asset for game developers: ' + product.name + '. ' + baseText },
+        { channel: 'social profile', status: 'waiting_for_connection', url: storeUrl + '?utm_source=social&utm_medium=post&utm_campaign=' + product.productId, body: product.name + ' is now available. ' + baseText }
+      ]
     };
     state.promotionDrafts.push(draft);
-    createTask('recommendation', '生成推广草稿：' + product.name, ['草稿 ' + draft.id, '状态：待人工审核']);
+    createTask('recommendation', '生成多渠道推广队列：' + product.name, ['草稿 ' + draft.id, '3 个渠道文案已准备，等待对应官方账号连接后发布']);
     commit(state);
     return { success: true, draft };
   }
@@ -2552,6 +2560,79 @@ function createStoreApp({ dataDir }) {
     commit(state);
     return { published, drafts, message: '已完成目录盘点；没有扫描、上传、删除或修改任何3D模型。' };
   }
+  function safeCatalogInspection() {
+    const published = state.products.filter(product => product.status === 'published');
+    const seenNames = new Set();
+    const duplicateNames = [];
+    published.forEach(product => {
+      const name = String(product.name || '').trim().toLowerCase();
+      if (name && seenNames.has(name)) duplicateNames.push(product.productId);
+      if (name) seenNames.add(name);
+    });
+    const report = {
+      id: 'AUDIT-' + randomUUID(), timestamp: new Date().toISOString(),
+      publishedProducts: published.length, duplicateNames: duplicateNames.length,
+      status: duplicateNames.length ? 'needs_review' : 'clear',
+      message: duplicateNames.length ? '发现疑似重名商品，已创建人工审核任务；未自动下架或改价。' : '已完成目录检查；未修改任何商品。'
+    };
+    if (!Array.isArray(state.inspectionLog)) state.inspectionLog = [];
+    state.inspectionLog.push(report);
+    if (state.inspectionLog.length > 30) state.inspectionLog = state.inspectionLog.slice(-30);
+    createTask('inspector', '执行商品质量与重复检查', [report.message, '已上架商品：' + report.publishedProducts]);
+    commit(state);
+    return report;
+  }
+  function createPriceProposal() {
+    taskLedger();
+    const product = state.products.find(item => item.status === 'published');
+    if (!product) {
+      createTask('listing', '检查价格维护条件', ['没有已上架商品，因此未创建价格建议']);
+      commit(state);
+      return { success: false, message: '没有已上架商品，未创建价格建议。' };
+    }
+    const proposal = {
+      id: 'PRICE-' + randomUUID(), productId: product.productId, productName: product.name,
+      currentPrice: product.price, suggestedPrice: product.price, status: 'needs_review',
+      reason: '当前没有可验证的真实销量、退款或转化数据，因此维持现价，等待真实数据后再建议调价。',
+      timestamp: new Date().toISOString()
+    };
+    state.priceProposals.push(proposal);
+    if (state.priceProposals.length > 30) state.priceProposals = state.priceProposals.slice(-30);
+    createTask('listing', '生成商品价格维护建议：' + product.name, [proposal.reason]);
+    commit(state);
+    return { success: true, proposal };
+  }
+  function scanRevenueOpportunities() {
+    const published = state.products.filter(product => product.status === 'published');
+    const visits = global.visitLog || { total: 0, today: 0 };
+    const opportunities = [];
+    if (published.length === 0) opportunities.push({ type: 'catalog', priority: 'high', action: '补齐至少一个有授权、可交付的商品页面', evidence: '当前没有可验证的公开商品' });
+    if (visits.total === 0) opportunities.push({ type: 'traffic', priority: 'high', action: '准备首批推广草稿并连接合规发布渠道', evidence: '站内尚无访问基线' });
+    if (state.orders.length === 0) opportunities.push({ type: 'conversion', priority: 'medium', action: '检查商品页的预览、许可证、交付说明和购买路径', evidence: '尚无已验证订单' });
+    if (!opportunities.length) opportunities.push({ type: 'maintenance', priority: 'low', action: '持续跟踪访问、订单和反馈，再决定下一轮商品计划', evidence: '已有基础数据' });
+    const scan = { id: 'OPP-' + randomUUID(), timestamp: new Date().toISOString(), opportunities, source: '站内商品、访问与订单数据' };
+    if (!Array.isArray(state.opportunityLog)) state.opportunityLog = [];
+    state.opportunityLog.push(scan); if (state.opportunityLog.length > 30) state.opportunityLog = state.opportunityLog.slice(-30);
+    createTask('researcher', '扫描可验证的增收机会', opportunities.map(item => item.action + '；依据：' + item.evidence));
+    commit(state);
+    return scan;
+  }
+  function createProductionBrief(opportunityScan) {
+    taskLedger();
+    if (!Array.isArray(state.productionBriefs)) state.productionBriefs = [];
+    const opportunity = opportunityScan?.opportunities?.[0];
+    const brief = {
+      id: 'BRIEF-' + randomUUID(), timestamp: new Date().toISOString(), status: 'ready_for_production',
+      title: opportunity?.type === 'catalog' ? '首个可交付商品资料包' : '商品页面与推广素材制作简报',
+      objective: opportunity?.action || '基于真实数据准备下一项商品维护工作',
+      checklist: ['核对模型来源与商用许可证', '确认可下载交付文件', '准备预览图与规格说明', '生成标签、价格建议和推广草稿'],
+      note: '此简报不创建、不上传、不修改任何3D模型；完成制作与授权确认后才可上架。'
+    };
+    state.productionBriefs.push(brief); if (state.productionBriefs.length > 30) state.productionBriefs = state.productionBriefs.slice(-30);
+    createTask('listing', '生成制作与上架简报：' + brief.title, [brief.objective, brief.note]);
+    commit(state);
+    return brief;
+  }
   function safeIteration() {
     state.consciousness.iteration += 1;
     const task = createTask('manager', '生成第 ' + state.consciousness.iteration + ' 轮本地运营计划', ['已核对可售商品、待审核素材、真实订单和站内咨询。', '未伪造成交，未向外部平台发帖。']);
@@ -2584,21 +2665,26 @@ function createStoreApp({ dataDir }) {
       completedTasks: done,
       activeTasks: queued,
       promotionDrafts: state.promotionDrafts.filter(draft => draft.status === 'ready_for_review').length,
+      priceProposals: state.priceProposals.filter(proposal => proposal.status === 'needs_review').length,
       publishedPromotions: state.promotionDrafts.filter(draft => draft.status === 'published').length,
       realOrders: state.orders.length,
       realRevenue: state.orders.reduce((total, order) => total + (Number(order.price) || 0), 0)
     };
   }
   function runStoreWorkflow() {
+    const opportunity = scanRevenueOpportunities();
     const research = safeResearch();
     const scan = safeCatalogAudit();
+    const production = createProductionBrief(opportunity);
+    const pricing = createPriceProposal();
     const iteration = safeIteration();
     const promotion = createPromotionDraft();
     const support = safeAcquire();
     createTask('order', '核对已验证订单与下载权限', ['真实订单数：' + state.orders.length, '没有创建虚假付款记录']);
+    const inspection = safeCatalogInspection();
     createTask('manager', '完成一轮可核查运营工作流', ['调研、审核、运营计划、推广草稿和线索检查均已记录']);
     commit(state);
-    return { research, scan, iteration, promotion, support, summary: workflowSummary() };
+    return { opportunity, research, scan, production, pricing, iteration, promotion, support, inspection, summary: workflowSummary() };
   }
 
   const agentHandlers = {
@@ -2780,26 +2866,19 @@ function createStoreApp({ dataDir }) {
 
   // ===== 商机雷达 API =====
   app.post('/api/store/radar/scan', (req, res) => {
-    const result = scanOpportunities();
+    const result = scanRevenueOpportunities();
     res.status(201).json({ success: true, scan: result });
   });
   app.get('/api/store/radar', (req, res) => {
     res.json({ scans: (state.opportunityLog || []).slice(-10).reverse() });
   });
+  app.get('/api/store/production-briefs', (req, res) => res.json({ briefs: (state.productionBriefs || []).slice(-20).reverse() }));
 
   // ===== 自动定价 API =====
   app.post('/api/store/pricing/auto', (req, res) => {
-    const { productId } = req.body || {};
-    if (!productId) {
-      const published = state.products.filter(p => p.status === 'published');
-      if (published.length === 0) return res.status(400).json({ error: '无可定价商品' });
-      const target = published[Math.floor(Math.random() * published.length)];
-      const result = autoPriceProduct(target.productId);
-      return res.status(201).json({ success: true, pricing: result });
-    }
-    const result = autoPriceProduct(productId);
-    if (!result.success) return res.status(404).json(result);
-    res.status(201).json({ success: true, pricing: result });
+    const result = createPriceProposal();
+    if (!result.success) return res.status(400).json(result);
+    res.status(201).json({ success: true, pricing: result.proposal, message: '已生成价格维护建议；未自动改价。' });
   });
 
   // ===== 主动推销 API =====
@@ -2974,10 +3053,10 @@ function createStoreApp({ dataDir }) {
   app.locals.scanLocal = safeCatalogAudit;
   app.locals.webSearch = safeResearch;
   app.locals.holdMeeting = holdTeamMeeting;
-  app.locals.runRadar = scanOpportunities;
+  app.locals.runRadar = scanRevenueOpportunities;
   app.locals.doPromotion = createPromotionDraft;
   app.locals.runWorkflow = runStoreWorkflow;
-  app.locals.doInspect = inspectStore;
+  app.locals.doInspect = safeCatalogInspection;
 
   return app;
 }
