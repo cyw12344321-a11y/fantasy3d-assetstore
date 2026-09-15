@@ -2477,7 +2477,25 @@ function createStoreApp({ dataDir }) {
   };
 
   app.get('/api/agents', (req, res) => {
-    res.json({ agents: agents.map(a => ({ ...a, online: true })) });
+    const published = state.products.filter(p => p.status === 'published');
+    res.json({
+      agents: agents.map(a => {
+        const s = state.agentStates[a.id] || {};
+        return {
+          ...a,
+          online: true,
+          status: s.status || 'idle',
+          currentTask: s.currentTask || '待命',
+          experience: s.experience || 0,
+          iterationCount: s.iterationCount || 0,
+          lastAction: s.lastAction || null
+        };
+      }),
+      iterationCount: state.consciousness ? state.consciousness.iteration : 0,
+      productsCount: published.length,
+      meetingsCount: state.meetings ? state.meetings.length : 0,
+      learningCount: state.learningLog ? state.learningLog.length : 0
+    });
   });
 
   // 访问统计API
