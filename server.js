@@ -273,6 +273,10 @@ function createStoreApp({ dataDir }) {
       if (!state.agentStates[id].learningLog) state.agentStates[id].learningLog = [];
       if (!state.agentStates[id].skills) state.agentStates[id].skills = defaultSkills[id] || {};
     });
+    // 确保监管员（第7个智能体）存在于旧数据中
+    if (!state.agentStates.inspector) {
+      state.agentStates.inspector = { status: 'idle', currentTask: '巡视全店', experience: 0, lastAction: null, learningLog: [], skills: { audit: 10, detection: 10, enforcement: 10 } };
+    }
   }
   function commit(next) {
     const tempFile = dataFile + '.tmp';
@@ -2468,6 +2472,19 @@ function createStoreApp({ dataDir }) {
     res.json({ agents: agents.map(a => ({ ...a, online: true })) });
   });
 
+  // 访问统计API
+  app.get('/api/stats/visits', (req, res) => {
+    const vlog = global.visitLog || { total: 0, today: 0, uniqueIPs: [], pages: {}, referrers: {}, recent: [] };
+    res.json({
+      total: vlog.total,
+      today: vlog.today,
+      uniqueVisitors: vlog.uniqueIPs ? vlog.uniqueIPs.length : 0,
+      topPages: vlog.pages ? Object.entries(vlog.pages).sort((a,b) => b[1]-a[1]).slice(0,10) : [],
+      topReferrers: vlog.referrers ? Object.entries(vlog.referrers).sort((a,b) => b[1]-a[1]).slice(0,10) : [],
+      recentVisits: vlog.recent ? vlog.recent.slice(0,20) : []
+    });
+  });
+
   app.get('/api/agents/:id/history', (req, res) => {
     const agent = agents.find(a => a.id === req.params.id);
     if (!agent) return res.status(404).json({ error: 'Agent not found.' });
@@ -2739,10 +2756,10 @@ function createStoreApp({ dataDir }) {
 
   // ===== 访问统计系统 =====
   const visitLogPath = path.join(__dirname, 'data', 'visits.json');
-  let visitLog = { total: 0, today: 0, todayDate: '', uniqueIPs: [], pages: {}, referrers: {}, recent: [] };
-  try { if (fs.existsSync(visitLogPath)) visitLog = JSON.parse(fs.readFileSync(visitLogPath, 'utf8')); } catch(e) {}
+  global.visitLog = { total: 0, today: 0, todayDate: '', uniqueIPs: [], pages: {}, referrers: {}, recent: [] };
+  try { if (fs.existsSync(visitLogPath)) global.visitLog = JSON.parse(fs.readFileSync(visitLogPath, 'utf8')); } catch(e) {}
   const todayStr = new Date().toISOString().slice(0,10);
-  if (visitLog.todayDate !== todayStr) { visitLog.today = 0; visitLog.todayDate = todayStr; }
+  if (global.visitLog.todayDate !== todayStr) { global.visitLog.today = 0; global.visitLog.todayDate = todayStr; }
 
   app.use((req, res, next) => {
     // 只统计HTML页面访问，不统计静态资源
@@ -2750,32 +2767,20 @@ function createStoreApp({ dataDir }) {
       const ip = req.headers['x-forwarded-for'] || req.ip || 'unknown';
       const referrer = req.headers['referer'] || '直接访问';
       const page = req.path;
-      visitLog.total++;
-      visitLog.today++;
-      if (!visitLog.uniqueIPs.includes(ip)) visitLog.uniqueIPs.push(ip);
-      visitLog.pages[page] = (visitLog.pages[page] || 0) + 1;
+      global.visitLog.total++;
+      global.visitLog.today++;
+      if (!global.visitLog.uniqueIPs.includes(ip)) global.visitLog.uniqueIPs.push(ip);
+      global.visitLog.pages[page] = (global.visitLog.pages[page] || 0) + 1;
       const refDomain = referrer.includes('://') ? referrer.split('://')[1].split('/')[0] : referrer;
-      visitLog.referrers[refDomain] = (visitLog.referrers[refDomain] || 0) + 1;
-      visitLog.recent.unshift({ time: new Date().toISOString(), ip, page, referrer: refDomain });
-      if (visitLog.recent.length > 100) visitLog.recent.pop();
+      global.visitLog.referrers[refDomain] = (global.visitLog.referrers[refDomain] || 0) + 1;
+      global.visitLog.recent.unshift({ time: new Date().toISOString(), ip, page, referrer: refDomain });
+      if (global.visitLog.recent.length > 100) global.visitLog.recent.pop();
       // 每10次访问保存一次
-      if (visitLog.total % 10 === 0) {
-        try { fs.writeFileSync(visitLogPath, JSON.stringify(visitLog, null, 2), 'utf8'); } catch(e) {}
+      if (global.visitLog.total % 10 === 0) {
+        try { fs.writeFileSync(visitLogPath, JSON.stringify(global.visitLog, null, 2), 'utf8'); } catch(e) {}
       }
     }
     next();
-  });
-
-  // 访问统计API
-  app.get('/api/stats/visits', (req, res) => {
-    res.json({
-      total: visitLog.total,
-      today: visitLog.today,
-      uniqueVisitors: visitLog.uniqueIPs.length,
-      topPages: Object.entries(visitLog.pages).sort((a,b) => b[1]-a[1]).slice(0,10),
-      topReferrers: Object.entries(visitLog.referrers).sort((a,b) => b[1]-a[1]).slice(0,10),
-      recentVisits: visitLog.recent.slice(0,20)
-    });
   });
 
   app.use(express.static(path.join(__dirname, 'frontend'), { dotfiles: 'deny' }));
@@ -2803,7 +2808,8 @@ async function startServer({ port = 0, dataDir } = {}) {
     const listener = app.listen(port, '0.0.0.0', () => resolve(listener));
     listener.once('error', reject);
   });
-  const url = `http://127.0.0.1:${server.address().port}`;
+  const addr = server.address();
+  const url = `http://127.0.0.1:${addr ? addr.port : port}`;
 
   // ===== 自治商店自动运转定时器 =====
   console.log('[自治商店] 启动自动运转机制...');
