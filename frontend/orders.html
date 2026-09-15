@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>My Demo Orders | Fantasy3D Demo</title>
+<title>我的订单 | Fantasy3D 自治资产商店</title>
 <link rel="stylesheet" href="store.css">
 <script src="shared.js" defer></script>
 <script src="orders.js" defer></script>
@@ -14,37 +14,38 @@
     <div class="header-inner">
       <a href="index.html" class="brand">
         <span class="logo-mark" aria-hidden="true">寺</span>
-        <span><span class="brand-title">Fantasy 3D</span><span class="brand-sub">Local Orders & Sample Downloads</span></span>
+        <span><span class="brand-title">Fantasy 3D</span><span class="brand-sub">订单与下载</span></span>
       </a>
       <nav class="main-nav" aria-label="Main navigation">
-        <a href="index.html">Home</a>
-        <a href="store.html">Asset Store</a>
-        <a href="agents.html">AI Agents</a>
-        <a href="orders.html" class="active" aria-current="page">My Orders</a>
-        <a href="about.html">About</a>
-        <a href="contact.html">Contact</a>
-        <a href="admin.html" class="admin-link">Admin Panel</a>
+        <a href="index.html">首页</a>
+        <a href="store.html">商店</a>
+        <a href="office.html">办公区</a>
+        <a href="agents.html">智能体</a>
+        <a href="orders.html" class="active" aria-current="page">订单</a>
+        <a href="about.html">关于</a>
+        <a href="contact.html">联系</a>
+        <a href="admin.html" class="admin-link">管理</a>
       </nav>
     </div>
   </header>
-  <aside class="demo-banner" aria-label="Order status information">
+  <aside class="demo-banner" aria-label="Order status information" style="background:linear-gradient(90deg,#1a2f1a,#0f1f0f);border-color:#2d5a2d;">
     <strong>订单状态以 PayPal 确认为准</strong>
-    <span>付款记录创建后会显示“等待付款确认”；支付平台确认后才能交付。</span>
-    <small id="serviceStatus" role="status">Checking local service… 正在检查本地服务…</small>
+    <span>付款记录创建后会显示“等待付款确认”；支付平台确认后即可下载交付。</span>
+    <small id="serviceStatus" role="status">正在连接商店服务…</small>
   </aside>
   <main class="order-wrap">
-    <h1>My Orders · 我的订单</h1>
-    <p class="page-intro">Use the email entered at checkout to find purchase records. 使用下单邮箱查询购买记录。</p>
+    <h1>我的订单</h1>
+    <p class="page-intro">使用下单时填写的邮箱查询购买记录与下载链接。</p>
     <form id="ordersForm" novalidate>
-      <label for="queryEmail">Order email · 下单邮箱</label>
-      <input class="email-input" id="queryEmail" type="email" required maxlength="254" autocomplete="email" placeholder="demo@example.com">
-      <button id="loadOrders" type="submit" class="filter-btn">Load Orders · 查询订单</button>
+      <label for="queryEmail">下单邮箱</label>
+      <input class="email-input" id="queryEmail" type="email" required maxlength="254" autocomplete="email" placeholder="请输入下单邮箱">
+      <button id="loadOrders" type="submit" class="filter-btn">查询订单</button>
     </form>
-    <p id="ordersMessage" class="feedback" role="status">Enter your demo order email to begin. 请输入模拟下单邮箱。</p>
+    <p id="ordersMessage" class="feedback" role="status">请输入下单邮箱开始查询。</p>
     <p id="downloadStatus" class="feedback" role="status" hidden></p>
     <div id="orderList"></div>
   </main>
-  <footer class="site-footer"><p>Fantasy3D ©2026 · Orders are fulfilled after confirmed payment.</p></footer>
+  <footer class="site-footer"><p>Fantasy3D ©2026 · 付款确认后交付</p></footer>
 </div>
 </body>
 </html>

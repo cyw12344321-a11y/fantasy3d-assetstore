@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Checkout | Fantasy3D</title>
+<title>发起购买 | Fantasy3D 自治资产商店</title>
 <link rel="stylesheet" href="store.css">
 <script src="shared.js" defer></script>
 <script src="checkout.js" defer></script>
@@ -14,49 +14,50 @@
     <div class="header-inner">
       <a href="index.html" class="brand">
         <span class="logo-mark" aria-hidden="true">寺</span>
-        <span><span class="brand-title">Fantasy 3D</span><span class="brand-sub">Secure purchase request</span></span>
+        <span><span class="brand-title">Fantasy 3D</span><span class="brand-sub">安全购买</span></span>
       </a>
       <nav class="main-nav" aria-label="Main navigation">
-        <a href="index.html">Home</a>
-        <a href="store.html">Asset Store</a>
-        <a href="agents.html">AI Agents</a>
-        <a href="orders.html">My Orders</a>
-        <a href="about.html">About</a>
-        <a href="contact.html">Contact</a>
-        <a href="admin.html" class="admin-link">Admin Panel</a>
+        <a href="index.html">首页</a>
+        <a href="store.html">商店</a>
+        <a href="office.html">办公区</a>
+        <a href="agents.html">智能体</a>
+        <a href="orders.html">订单</a>
+        <a href="about.html">关于</a>
+        <a href="contact.html">联系</a>
+        <a href="admin.html" class="admin-link">管理</a>
       </nav>
     </div>
   </header>
-  <aside class="demo-banner" aria-label="Payment information">
-    <strong>PayPal payment · 真实付款链路</strong>
-    <span>填写邮箱后会创建付款记录并跳转至 PayPal。订单只会在 PayPal 确认付款后变为已付款。</span>
-    <small id="serviceStatus" role="status">Checking local service… 正在检查本地服务…</small>
+  <aside class="demo-banner" aria-label="Payment information" style="background:linear-gradient(90deg,#1a2f1a,#0f1f0f);border-color:#2d5a2d;">
+    <strong>PayPal 真实付款链路</strong>
+    <span>填写邮箱后会创建付款记录并跳转至 PayPal，订单仅在 PayPal 确认付款后变为已付款并交付。</span>
+    <small id="serviceStatus" role="status">正在连接商店服务…</small>
   </aside>
   <main class="checkout-container">
     <div class="checkout-card">
-      <h1>Checkout · 发起购买</h1>
-      <p class="page-intro" id="productName">Select an asset</p>
+      <h1>发起购买</h1>
+      <p class="page-intro" id="productName">正在读取商品…</p>
       <form id="checkoutForm" novalidate>
         <div class="form-row">
-          <label for="productId">Asset ID</label>
+          <label for="productId">商品 ID</label>
           <input id="productId" readonly>
         </div>
         <div class="form-row">
-          <label for="buyerEmail">Email for order updates · 订单查询邮箱</label>
+          <label for="buyerEmail">订单查询邮箱</label>
           <input id="buyerEmail" type="email" required maxlength="254" autocomplete="email" placeholder="you@example.com" aria-describedby="emailHelp">
-          <small id="emailHelp">Used to find this purchase record. Payment confirmation must come from PayPal. 用于查询订单；付款状态以 PayPal 确认为准。</small>
+          <small id="emailHelp">用于查询本笔订单记录；付款状态以 PayPal 确认为准。</small>
         </div>
-        <div class="total-line">Price: $<span id="priceDisplay">—</span> USD</div>
-        <p class="sample-note">After you continue, enter the displayed amount at PayPal and keep the PayPal receipt. Payment is not confirmed by this page.</p>
-        <button id="submitOrder" type="submit" disabled>Continue to PayPal · 前往 PayPal</button>
+        <div class="total-line">价格：$<span id="priceDisplay">—</span> USD</div>
+        <p class="sample-note">继续后请在 PayPal 中支付页面所示金额，并保留付款凭证；本页面不代表已完成付款。</p>
+        <button id="submitOrder" type="submit" disabled>前往 PayPal</button>
       </form>
-      <p id="checkoutMessage" class="feedback" role="status">Loading asset…</p>
-      <button id="retryProduct" class="filter-btn" type="button" hidden>Retry · 重试</button>
-      <p id="successMsg" class="success-link" hidden><a href="orders.html">View purchase status · 查看订单状态</a></p>
-      <p class="return-link"><a href="store.html">Back to Asset Store</a> · <a href="orders.html">My Orders</a></p>
+      <p id="checkoutMessage" class="feedback" role="status">正在读取商品…</p>
+      <button id="retryProduct" class="filter-btn" type="button" hidden>重试</button>
+      <p id="successMsg" class="success-link" hidden><a href="orders.html">查看订单状态</a></p>
+      <p class="return-link"><a href="store.html">返回商店</a> · <a href="orders.html">我的订单</a></p>
     </div>
   </main>
-  <footer class="site-footer"><p>Fantasy3D ©2026 · PayPal payment link · Delivery after confirmed payment.</p></footer>
+  <footer class="site-footer"><p>Fantasy3D ©2026 · PayPal 付款 · 付款确认后交付</p></footer>
 </div>
 </body>
 </html>

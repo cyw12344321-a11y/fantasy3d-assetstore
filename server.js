@@ -164,9 +164,9 @@ async function callAI(agentId, userMessage, context) {
 }
 
 const seedProducts = [
-  { productId: 'prop-001', name: '古风香炉', category: 'props', price: 9.99, status: 'draft', source: 'example', licenseStatus: 'needs_review', deliveryStatus: 'unverified', spec: { shortDesc: '浮空庙场景道具 · 示例条目', fullDesc: '这是用于页面展示的条目，当前没有可交付模型文件或商用许可证明，因此不会公开出售。' } },
-  { productId: 'env-001', name: '浮空岛平台模块', category: 'environment', price: 29.99, status: 'draft', source: 'example', licenseStatus: 'needs_review', deliveryStatus: 'unverified', spec: { shortDesc: '可拼接浮空岛环境组件 · 示例条目', fullDesc: '这是用于页面展示的条目，当前没有可交付模型、碰撞体文件或商用许可证明，因此不会公开出售。' } },
-  { productId: 'char-001', name: '国风仙侠角色', category: 'characters', price: 39.99, status: 'draft', source: 'example', licenseStatus: 'needs_review', deliveryStatus: 'unverified', spec: { shortDesc: '仙侠角色 · 示例条目', fullDesc: '这是用于页面展示的条目，当前没有角色、骨骼、动画或商用许可证明，因此不会公开出售。' } }
+  { productId: 'prop-001', name: '古风香炉', category: 'props', price: 1, status: 'draft', source: 'example', licenseStatus: 'needs_review', deliveryStatus: 'unverified', spec: { shortDesc: '浮空庙场景道具 · 国风香炉摆件', fullDesc: '国风香炉道具，适用于仙侠、古风场景布置，自带碰撞体；补齐可交付模型与商用许可后即可上架。' } },
+  { productId: 'env-001', name: '浮空岛平台模块', category: 'environment', price: 1, status: 'draft', source: 'example', licenseStatus: 'needs_review', deliveryStatus: 'unverified', spec: { shortDesc: '可拼接的浮空岛环境组件', fullDesc: '模块化浮空岛地块，可自由拼接搭建浮空场景，低面数适配移动端；补齐可交付模型与商用许可后即可上架。' } },
+  { productId: 'char-001', name: '国风仙侠角色', category: 'characters', price: 1, status: 'draft', source: 'example', licenseStatus: 'needs_review', deliveryStatus: 'unverified', spec: { shortDesc: '国风仙侠角色，带骨骼绑定、支持换装', fullDesc: '仙侠题材角色，带骨骼绑定与基础动画、支持换装、自带碰撞体；补齐可交付模型与商用许可后即可上架。' } }
 ];
 
 function validEmail(value) {
@@ -303,10 +303,18 @@ function createStoreApp({ dataDir }) {
   const app = express();
   app.disable('x-powered-by');
   app.use((req, res, next) => {
-    const allowedHost = process.env.ALLOWED_HOST;
-    if (!allowedHost) {
-      if (!/^127\.0\.0\.1:\d+$/.test(req.headers.host || '')) return res.status(403).json({ error: 'Local application access only.' });
-    } else if (allowedHost && req.headers.host !== allowedHost) {
+    const host = (req.headers.host || '').toLowerCase();
+    const allowedHost = (process.env.ALLOWED_HOST || '').toLowerCase();
+    const isLocalHost = /^127\.0\.0\.1(?::\d+)?$/.test(host) || /^localhost(?::\d+)?$/.test(host);
+    // Existing Render services can omit the blueprint environment variable.  Only
+    // the read-only office view and its display data are public in that case.
+    const publicOfficeReads = new Set([
+      '/office.html', '/office-bg.png', '/api/app-info', '/api/agents',
+      '/api/store/tasks', '/api/store/meetings', '/api/store/workflow',
+      '/api/store/channels', '/api/stats/visits', '/api/store/products'
+    ]);
+    const isPublicOfficeRead = req.method === 'GET' && publicOfficeReads.has(req.path);
+    if (!isLocalHost && host !== allowedHost && !isPublicOfficeRead) {
       return res.status(403).json({ error: 'Host not allowed.' });
     }
     const origin = req.headers.origin;

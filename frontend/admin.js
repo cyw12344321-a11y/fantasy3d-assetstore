@@ -40,10 +40,10 @@
   async function load() {
     if (busy) return;
     setBusy(true);
-    message(feedback, "Loading local demo catalog… 正在加载本地演示目录…");
+    message(feedback, "正在加载商品目录…");
     try {
       const count = await refresh();
-      message(feedback, count ? "Changes apply to this local demo catalog. 上下架仅影响本机演示商店。" : "No assets found. 暂无商品。");
+      message(feedback, count ? "已同步商品目录，上下架改动已生效。" : "暂无商品。");
     } catch (error) { message(feedback, error.message, "error"); }
     finally { setBusy(false); }
   }
