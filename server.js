@@ -150,7 +150,8 @@ async function callAI(agentId, userMessage, context) {
   userMessage = String(userMessage || '').slice(0, AI_BUDGET.maxUserChars);
   context = context ? String(context).slice(0, AI_BUDGET.maxContextChars) : context;
   try {
-    const systemPrompt = AGENT_SYSTEM_PROMPTS[agentId] || '你是 Fantasy3D 商店的智能体助手。';
+    const FACT_RULES = '【最高准则】你是 Fantasy3D 自治商店的在岗智能体，只能依据“当前商店状态”中的真实数据回答：订单/下载/客户/发帖为 0 就明确说暂无，严禁编造订单号、下载链接、成交、客户数、触达量、市场统计、数据来源或任何尚未执行的操作；做不到的事说明会记录并转交，不承诺未开通的功能；用与顾客相同的语言，简洁具体。';
+    const systemPrompt = (AGENT_SYSTEM_PROMPTS[agentId] || '你是 Fantasy3D 商店的智能体助手。') + '\n' + FACT_RULES;
     const contextStr = context ? ('\n\n当前商店状态：\n' + context) : '';
     if (AI_CONFIG.provider === 'coze') {
       const botId = AI_CONFIG.cozeBotIds[agentId];
@@ -421,6 +422,75 @@ function createStoreApp({ dataDir }) {
     state = next;
   }
   if (!fs.existsSync(dataFile)) commit(state);
+  // ===== 跨环境模型文件解析：返回当前运行环境真实可读的模型文件绝对路径（线上 models_batch* / 本地 D 盘），找不到返回 null =====
+  let _modelDirs = null;
+  function collectModelDirs() {
+    if (_modelDirs) return _modelDirs;
+    const frontendDir = path.join(__dirname, 'frontend');
+    const dirs = [path.join(frontendDir, 'models')];
+    const grab = (base) => {
+      try {
+        for (const e of fs.readdirSync(base)) {
+          if (e.toLowerCase().startsWith('models_batch')) {
+            const fp = path.join(base, e);
+            try { if (fs.statSync(fp).isDirectory()) dirs.push(fp); } catch (er) {}
+          }
+        }
+      } catch (er) {}
+    };
+    grab(frontendDir); grab(__dirname);
+    _modelDirs = dirs;
+    return dirs;
+  }
+  function modelCandidateNames(product) {
+    const raw = (product && (product.filePath || product.name)) || '';
+    const filename = fileBaseName(raw);
+    if (!filename) return [];
+    const glbName = filename.replace(/\.(fbx|obj|blend|stl|dae|3ds)$/i, '.glb');
+    return Array.from(new Set([filename, glbName].filter(Boolean)));
+  }
+  function resolveModelPath(product) {
+    if (!product) return null;
+    if (product.filePath) {
+      try { if (fs.existsSync(product.filePath) && fs.statSync(product.filePath).isFile()) return product.filePath; } catch (e) {}
+    }
+    const names = modelCandidateNames(product);
+    for (const d of collectModelDirs()) {
+      for (const n of names) {
+        const fp = path.join(d, n);
+        try { if (fs.existsSync(fp) && fs.statSync(fp).isFile()) return fp; } catch (e) {}
+      }
+    }
+    const lm = AUTONOMY_CONFIG.localModelDir;
+    for (const sub of [path.join(lm, '_preview'), lm]) {
+      for (const n of names) {
+        const fp = path.join(sub, n);
+        try { if (fs.existsSync(fp) && fs.statSync(fp).isFile()) return fp; } catch (e) {}
+      }
+    }
+    return null;
+  }
+  // 真实经营事实快照：所有智能体回答必须以此为准，杜绝编造订单/客户/触达/全网数据
+  function buildFactSnapshot() {
+    const published = state.products.filter(p => p.status === 'published');
+    const drafts = state.products.filter(p => p.status === 'draft');
+    const isReal = o => o.status === 'paid' || o.status === 'fulfilled' || o.status === 'delivered';
+    const paidOrders = state.orders.filter(isReal);
+    const revenue = paidOrders.reduce((s, o) => s + (Number(o.price) || 0), 0);
+    const v = global.visitLog || { total: 0, today: 0, uniqueIPs: [] };
+    const connected = (state.channels || []).filter(c => c.status === 'connected' || c.status === 'ready').map(c => c.name);
+    const payMode = PAYMENT_CONFIG.ready ? (PAYMENT_CONFIG.live ? 'PayPal Live 真实收款' : 'PayPal 沙箱测试（非真实收款）') : (PAYMENT_CONFIG.paypalMe ? 'PayPal.me 收款链接' : '未配置收款');
+    return [
+      '【当前商店真实状态，必须严格据此回答，不得超出】',
+      '在售商品：' + published.length + ' 件；待审核草稿：' + drafts.length + ' 件。',
+      '真实付款订单：' + paidOrders.length + ' 笔；真实收入：$' + revenue.toFixed(2) + '；收款通道：' + payMode + '。',
+      '访问量：累计 ' + v.total + '，今日 ' + v.today + '，独立访客 ' + ((v.uniqueIPs || []).length) + '。',
+      '已连接可发布渠道：' + (connected.length ? connected.join('、') : '暂无（推广内容目前只生成草稿，尚未对外发布）') + '。',
+      '交付：付款确认后系统自动生成模型文件下载链接；格式 GLB/FBX/OBJ 等，可导入 Unity / Unreal / Cocos；商品多为 $0.10~$1.00。',
+      '自我迭代：' + (state.consciousness ? state.consciousness.iteration : 0) + ' 轮；团队 7 个智能体分工协作。',
+      '铁律：订单/客户/下载/触达/发帖为 0 就必须如实说“暂无”，严禁虚构订单号、下载链接、成交、客户数、触达量、市场统计、数据来源或尚未执行的操作。'
+    ].join('\n');
+  }
 
   const app = express();
   app.disable('x-powered-by');
@@ -2143,40 +2213,52 @@ function createStoreApp({ dataDir }) {
   }
 
   // ===== 团队会议机制（智能体商量决策）=====
+  // 团队例会：基于真实数据发言，产出结构化、可执行的站内决策并入队（不虚构生产/成交）
   function holdTeamMeeting(topic) {
+    if (!Array.isArray(state.meetings)) state.meetings = [];
+    if (!Array.isArray(state.actionQueue)) state.actionQueue = [];
+    if (!Array.isArray(state.channels)) channelRegistry();
+    const published = state.products.filter(p => p.status === 'published');
+    const drafts = state.products.filter(p => p.status === 'draft');
+    const isReal = o => o.status === 'paid' || o.status === 'fulfilled' || o.status === 'delivered';
+    const paid = state.orders.filter(isReal);
+    const revenue = paid.reduce((s, o) => s + (Number(o.price) || 0), 0);
+    const v = global.visitLog || { total: 0, today: 0 };
+    const cats = {};
+    published.forEach(p => { cats[p.category] = (cats[p.category] || 0) + 1; });
+    const lastAudit = (state.inspectionLog || [])[0];
+    let convoCount = 0;
+    try { Object.keys(state.conversations || {}).forEach(id => { const c = state.conversations[id]; if (Array.isArray(c)) convoCount += c.filter(m => m.role === 'user').length; }); } catch (e) {}
+    const connectedChannels = (state.channels || []).filter(c => c.status === 'connected' || c.status === 'ready').length;
     const opinions = [
-      { agent: '🔍 调研智能体', opinion: '根据数据分析，场景类资产转化率最高，建议优先扩充' },
-      { agent: '🎯 推荐智能体', opinion: '用户经常询问角色模型，建议生产带换装系统的角色资产' },
-      { agent: '💬 接待智能体', opinion: '客户反馈希望有更多移动端适配的低面数模型' },
-      { agent: '📦 订单智能体', opinion: '订单数据显示道具类复购率高，可考虑推出道具包' },
-      { agent: '✨ 生产智能体', opinion: '可以生产一套「浮空宫殿建筑群」，包含主殿+偏殿+香炉' }
+      { agent: '🔍 调研员「插千的」', opinion: '在售 ' + published.length + ' 件、草稿 ' + drafts.length + ' 件；累计访问 ' + v.total + '、今日 ' + v.today + '；品类：' + Object.keys(cats).map(k => k + ' ' + cats[k]).join('，') + '。当前重点是把真实流量引进来。' },
+      { agent: '🎯 推荐官「炮头」', opinion: '已备推广草稿 ' + (state.promotionDrafts || []).length + ' 篇；可发布渠道 ' + connectedChannels + ' 个。未接通的渠道只准备文案，不虚报发帖。' },
+      { agent: '💬 接待员「水香」', opinion: '站内真实咨询 ' + convoCount + ' 条；坚持按真实商品与订单回答，没有成交就说暂无。' },
+      { agent: '📦 订单员「粮台」', opinion: '真实付款订单 ' + paid.length + ' 笔、收入 $' + revenue.toFixed(2) + '；成交后系统自动发货下载。' },
+      { agent: '✨ 生产员「翻垛的」', opinion: (lastAudit && (lastAudit.duplicatesRemoved || lastAudit.brokenRemoved)) ? ('上轮巡检下架重复 ' + (lastAudit.duplicatesRemoved || 0) + '、损坏 ' + (lastAudit.brokenRemoved || 0) + ' 件，保持目录干净。') : '目录质检通过；坚持只有具备可交付模型文件才上架，不造空壳商品。' },
+      { agent: '⚖️ 监管员「总稽查」', opinion: lastAudit ? ('最近巡检：' + lastAudit.message) : '本轮先完成全店质检。' }
     ];
-    const decision = '店长决策：采纳各方建议，下一轮迭代优先生产浮空宫殿建筑群套装，同时优化现有商品描述，强化移动端适配标签。';
     const actionItems = [
-      '生产智能体启动「浮空宫殿建筑群」套装生产',
-      '调研智能体持续监测用户反馈',
-      '接待智能体将新商品信息更新到知识库',
-      '推荐智能体将新套装加入优先推荐列表'
+      { type: 'catalog_inspection', title: '监管员全店质检：重复/损坏下架、价格与描述纠偏' },
+      { type: 'pricing_review', title: '按真实销量在 $0.10~$1.00 区间复核价格' },
+      { type: 'promo_draft', title: '为一件在售商品生成多渠道推广草稿（不自动外发）' }
     ];
+    if (published.length === 0) actionItems.unshift({ type: 'restore_catalog', title: '货架为空，优先恢复可交付商品上架' });
+    actionItems.forEach(a => state.actionQueue.push(a));
+    if (state.actionQueue.length > 40) state.actionQueue = state.actionQueue.slice(-40);
+    const decision = '店长决策：本轮先完成店内质检与价格复核（真实整改），并备好推广草稿；对外发布只在已授权渠道进行，不伪造任何发帖、客户或成交。';
     const meeting = {
       id: 'MEET-' + Date.now(),
-      topic,
+      topic: topic || ('第 ' + (state.meetings.length + 1) + ' 次经营例会'),
       timestamp: new Date().toISOString(),
-      opinions,
-      decision,
-      actionItems
+      opinions, decision, actionItems
     };
     state.meetings.push(meeting);
-    agents.forEach(a => {
-      if (state.agentStates[a.id]) {
-        state.agentStates[a.id].lastAction = new Date().toISOString();
-        state.agentStates[a.id].experience += 1;
-      }
-    });
+    if (state.meetings.length > 30) state.meetings = state.meetings.slice(-30);
+    agents.forEach(a => { const st = state.agentStates[a.id]; if (st) { st.lastAction = meeting.timestamp; st.experience += 1; } });
     commit(state);
     return meeting;
   }
-
   // ===== 自主生产机制 =====
   function produceNewAsset() {
     const templates = [
@@ -2671,12 +2753,18 @@ function createStoreApp({ dataDir }) {
   function channelRegistry() {
     if (!Array.isArray(state.channels)) {
       state.channels = [
-        { id: 'itchio', name: 'itch.io 开发日志', connectUrl: 'https://itch.io/login', status: 'not_connected', purpose: '发布开发日志和商品更新' },
+        { id: 'itchio', name: 'itch.io 开发日志', connectUrl: 'https://itch.io/login', status: 'not_connected', purpose: '发布开发日志、免费在线演示和商品更新' },
         { id: 'huggingface', name: 'Hugging Face Space', connectUrl: 'https://huggingface.co/', status: 'not_connected', purpose: '发布免费在线演示，把试用用户引导到付费商品页' },
         { id: 'youtube', name: 'YouTube', connectUrl: 'https://accounts.google.com/', status: 'not_connected', purpose: '发布商品演示视频' },
         { id: 'search-console', name: 'Google Search Console', connectUrl: 'https://search.google.com/search-console/', status: 'not_connected', purpose: '提交站点并查看搜索表现' },
         { id: 'developer-community', name: '开发者社区', connectUrl: null, status: 'not_connected', purpose: '按社区规则发布案例和教程' }
       ];
+    }
+    const itch = state.channels.find(c => c.id === 'itchio');
+    if (itch && process.env.ITCH_IO_API_KEY && itch.status === 'not_connected') {
+      itch.status = 'ready';
+      itch.connectUrl = 'https://itch.io/dashboard';
+      itch.note = '已配置 API 密钥；在 itch.io 创建首个项目页后，即可用 butler 自动发布开发日志/免费演示（发布前仍需确认素材授权）。';
     }
     return state.channels;
   }
@@ -2745,47 +2833,156 @@ function createStoreApp({ dataDir }) {
     commit(state);
     return { published, drafts, message: '已完成目录盘点；没有扫描、上传、删除或修改任何3D模型。' };
   }
-  function safeCatalogInspection() {
-    const published = state.products.filter(product => product.status === 'published');
-    const seenNames = new Set();
-    const duplicateNames = [];
-    published.forEach(product => {
-      const name = String(product.name || '').trim().toLowerCase();
-      if (name && seenNames.has(name)) duplicateNames.push(product.productId);
-      if (name) seenNames.add(name);
-    });
+  // 监管员「总稽查」：基于当前环境真实模型文件做质检与整改（跨平台；线上 models_batch*，本地 D 盘）
+  async function safeCatalogInspection() {
+    const crypto = require('crypto');
+    const startedPublished = state.products.filter(p => p.status === 'published');
+    const actions = [];
+    let removedDup = 0, removedBad = 0, priceFixed = 0, descFixed = 0;
+    const MAX_REMOVE = 60, MAX_DESC = 20;
+    const seenName = new Set();
+    const sizeGroups = new Map();
+    const demote = (p, why) => {
+      if (removedDup + removedBad >= MAX_REMOVE) return false;
+      p.status = 'draft';
+      p.removedReason = why;
+      p.removedAt = new Date().toISOString();
+      actions.push(why);
+      return true;
+    };
+    for (const p of startedPublished) {
+      const nk = String(p.name || '').trim().toLowerCase();
+      if (nk) {
+        if (seenName.has(nk)) { if (demote(p, '下架重名商品「' + p.name + '」')) { removedDup++; continue; } }
+        else seenName.add(nk);
+      }
+      const fp = resolveModelPath(p);
+      if (!fp) { if (demote(p, '下架无可交付文件的商品「' + p.name + '」（当前环境找不到模型）')) { removedBad++; continue; } }
+      let stat;
+      try { stat = fs.statSync(fp); } catch (e) { if (demote(p, '下架无法读取的商品「' + p.name + '」')) { removedBad++; continue; } }
+      if (!stat || stat.size === 0) { if (demote(p, '下架空文件商品「' + p.name + '」')) { removedBad++; continue; } }
+      if (/\.glb$/i.test(fp)) {
+        let ok = false;
+        try {
+          const fd = fs.openSync(fp, 'r');
+          const buf = Buffer.alloc(4);
+          fs.readSync(fd, buf, 0, 4, 0);
+          fs.closeSync(fd);
+          ok = buf.toString('ascii') === 'glTF';
+        } catch (e) { ok = false; }
+        if (!ok) { if (demote(p, '下架损坏 GLB「' + p.name + '」（文件头无效）')) { removedBad++; continue; } }
+      }
+      // 同大小候选才计算 MD5，精确去重且避免全量哈希的 IO（同大小组懒加载首个文件哈希）
+      const ext = path.extname(fp).toLowerCase();
+      const sizeKey = stat.size + '|' + ext;
+      const group = sizeGroups.get(sizeKey);
+      if (!group) {
+        sizeGroups.set(sizeKey, { owner: p, hashes: null });
+      } else {
+        try {
+          if (!group.hashes) {
+            const ownerFp = resolveModelPath(group.owner);
+            const ownerHash = crypto.createHash('md5').update(fs.readFileSync(ownerFp)).digest('hex');
+            group.hashes = new Map([[ownerHash, group.owner]]);
+          }
+          const h = crypto.createHash('md5').update(fs.readFileSync(fp)).digest('hex');
+          const owner = group.hashes.get(h);
+          if (owner) {
+            if (demote(p, '下架重复商品「' + p.name + '」（与「' + owner.name + '」文件完全相同）')) { removedDup++; continue; }
+          } else {
+            group.hashes.set(h, p);
+          }
+        } catch (e) {}
+      }
+      // 价格夹回 $0.10~$1.00
+      const price = Number(p.price);
+      if (!(price >= 0.1 && price <= 1)) {
+        const old = p.price;
+        p.price = Math.max(0.1, Math.min(1, price || 1));
+        p.lastPriceChange = Date.now();
+        priceFixed++;
+        actions.push('价格纠偏「' + p.name + '」：$' + old + '→$' + p.price);
+      }
+      // 描述过短/乱码修复
+      const d = (p.spec && p.spec.shortDesc) || '';
+      if (descFixed < MAX_DESC && (d.length < 5 || /�|undefined|\bnull\b/i.test(d))) {
+        try {
+          const gen = generateProductDesc(fileBaseName(p.filePath || p.name), p.category, stat.size);
+          if (gen && gen.shortDesc) {
+            if (!p.spec) p.spec = {};
+            p.spec.shortDesc = gen.shortDesc;
+            if (gen.fullDesc) p.spec.fullDesc = gen.fullDesc;
+            descFixed++;
+            actions.push('补全描述「' + p.name + '」');
+          }
+        } catch (e) {}
+      }
+    }
+    const remaining = state.products.filter(x => x.status === 'published').length;
     const report = {
       id: 'AUDIT-' + randomUUID(), timestamp: new Date().toISOString(),
-      publishedProducts: published.length, duplicateNames: duplicateNames.length,
-      status: duplicateNames.length ? 'needs_review' : 'clear',
-      message: duplicateNames.length ? '发现疑似重名商品，已创建人工审核任务；未自动下架或改价。' : '已完成目录检查；未修改任何商品。'
+      inspected: startedPublished.length, publishedProducts: remaining,
+      duplicatesRemoved: removedDup, brokenRemoved: removedBad, priceFixed, descFixed,
+      duplicateNames: removedDup,
+      status: actions.length ? 'issues_fixed' : 'clear',
+      message: actions.length
+        ? ('真实整改 ' + actions.length + ' 项（在售 ' + startedPublished.length + '→' + remaining + '）：' + actions.slice(0, 8).join('；'))
+        : ('巡检 ' + startedPublished.length + ' 件在售商品：文件、价格、描述均正常，在售 ' + remaining + ' 件。')
     };
+    // 监管员用独立大模型（千问 plus）基于真实结果复核；失败不影响已完成的整改
+    try {
+      const advice = await callAI('inspector', '基于以下真实巡检结果给出下一步重点与风险提示，3 点以内，不要复述、不要编造：' + report.message, buildFactSnapshot());
+      if (advice) report.aiAnalysis = String(advice).slice(0, 300);
+    } catch (e) {}
     if (!Array.isArray(state.inspectionLog)) state.inspectionLog = [];
-    state.inspectionLog.push(report);
-    if (state.inspectionLog.length > 30) state.inspectionLog = state.inspectionLog.slice(-30);
-    createTask('inspector', '执行商品质量与重复检查', [report.message, '已上架商品：' + report.publishedProducts]);
+    state.inspectionLog.unshift(report);
+    if (state.inspectionLog.length > 30) state.inspectionLog = state.inspectionLog.slice(0, 30);
+    const ag = state.agentStates.inspector;
+    if (ag) { ag.status = 'idle'; ag.currentTask = '巡检完成，整改 ' + actions.length + ' 项'; ag.lastAction = report.timestamp; ag.experience += 1; }
+    createTask('inspector', '全店质检与整改', [report.message, '在售：' + report.publishedProducts]);
     commit(state);
     return report;
   }
+  // 真实自动定价：价格只在 $0.10~$1.00 离散档位间，按真实付款订单与上架时长调整，限频，绝不基于演示/猜测数据
   function createPriceProposal() {
-    taskLedger();
-    const product = state.products.find(item => item.status === 'published');
-    if (!product) {
-      createTask('listing', '检查价格维护条件', ['没有已上架商品，因此未创建价格建议']);
-      commit(state);
-      return { success: false, message: '没有已上架商品，未创建价格建议。' };
+    if (!state.pricingBaseline) state.pricingBaseline = new Date().toISOString();
+    const LEVELS = [1.0, 0.8, 0.6, 0.4, 0.2, 0.1];
+    const reviewDays = Number(process.env.PRICING_REVIEW_DAYS || 7);
+    const maxAdjust = 40;
+    const now = Date.now();
+    const isReal = o => o.status === 'paid' || o.status === 'fulfilled' || o.status === 'delivered';
+    const results = [];
+    let adjusted = 0;
+    for (const p of state.products.filter(x => x.status === 'published')) {
+      if (adjusted >= maxAdjust) break;
+      const lastTs = p.lastPriceChange ? new Date(p.lastPriceChange).getTime() : 0;
+      if (p.lastPriceChange && now - lastTs < reviewDays * 86400000) continue;
+      const createdTs = new Date(p.createdAt || state.pricingBaseline).getTime();
+      const ageDays = (now - createdTs) / 86400000;
+      const paid = state.orders.filter(o => isReal(o) && o.productId === p.productId).length;
+      const cur = Math.round((Number(p.price) || 1) * 100) / 100;
+      let idx = 0, best = Infinity;
+      for (let i = 0; i < LEVELS.length; i++) { const d = Math.abs(LEVELS[i] - cur); if (d < best) { best = d; idx = i; } }
+      let target = cur, reason = '';
+      if (paid >= 2 && idx > 0) { target = LEVELS[idx - 1]; reason = '已有 ' + paid + ' 笔真实成交，上调一档至 $' + target; }
+      else if (paid === 0 && ageDays >= reviewDays && idx < LEVELS.length - 1) { target = LEVELS[idx + 1]; reason = '上架约 ' + Math.round(ageDays) + ' 天暂无成交，下调一档促销至 $' + target; }
+      else continue;
+      if (target === cur) continue;
+      if (!Array.isArray(p.priceHistory)) p.priceHistory = [];
+      p.priceHistory.push({ time: new Date().toISOString(), oldPrice: cur, newPrice: target, reason, evidence: { paidOrders: paid } });
+      if (p.priceHistory.length > 20) p.priceHistory = p.priceHistory.slice(-20);
+      p.price = target;
+      p.lastPriceChange = now;
+      adjusted++;
+      results.push({ productId: p.productId, name: p.name, oldPrice: cur, newPrice: target, reason });
     }
-    const proposal = {
-      id: 'PRICE-' + randomUUID(), productId: product.productId, productName: product.name,
-      currentPrice: product.price, suggestedPrice: product.price, status: 'needs_review',
-      reason: '当前没有可验证的真实销量、退款或转化数据，因此维持现价，等待真实数据后再建议调价。',
-      timestamp: new Date().toISOString()
-    };
-    state.priceProposals.push(proposal);
-    if (state.priceProposals.length > 30) state.priceProposals = state.priceProposals.slice(-30);
-    createTask('listing', '生成商品价格维护建议：' + product.name, [proposal.reason]);
-    commit(state);
-    return { success: true, proposal };
+    if (adjusted) {
+      createTask('listing', '按真实销量执行调价', results.slice(0, 10).map(r => r.name + '：$' + r.oldPrice + '→$' + r.newPrice));
+      const ag = state.agentStates.listing;
+      if (ag) { ag.status = 'working'; ag.currentTask = '智能调价 ' + adjusted + ' 件'; ag.lastAction = new Date().toISOString(); ag.experience += 1; }
+      commit(state);
+    }
+    return { success: true, adjusted, results, message: adjusted ? ('已按真实数据调价 ' + adjusted + ' 件（区间 $0.10~$1.00，每 ' + reviewDays + ' 天最多一档）') : '本轮没有商品满足调价条件，维持现价（不基于猜测改价）。' };
   }
   function scanRevenueOpportunities() {
     const published = state.products.filter(product => product.status === 'published');
@@ -2818,13 +3015,38 @@ function createStoreApp({ dataDir }) {
     commit(state);
     return brief;
   }
-  function safeIteration() {
+  // 一轮真实站内经营闭环：消费会议决策 → 真质检整改 → 真定价 → 备推广草稿，全部记录真实结果
+  async function safeIteration() {
     state.consciousness.iteration += 1;
-    const task = createTask('manager', '生成第 ' + state.consciousness.iteration + ' 轮本地运营计划', ['已核对可售商品、待审核素材、真实订单和站内咨询。', '未伪造成交，未向外部平台发帖。']);
-    const record = { iteration: state.consciousness.iteration, timestamp: new Date().toISOString(), actions: [task.title], problems: [], lessons: '本轮仅记录可验证的本地运营事项。' };
+    const n = state.consciousness.iteration;
+    if (!Array.isArray(state.actionQueue)) state.actionQueue = [];
+    const due = [];
+    const seenT = new Set();
+    while (state.actionQueue.length && due.length < 6) {
+      const a = state.actionQueue.shift();
+      if (a && !seenT.has(a.type)) { seenT.add(a.type); due.push(a); }
+    }
+    const executed = [];
+    let audit = null;
+    try { audit = await safeCatalogInspection(); executed.push('质检整改：' + audit.message); }
+    catch (e) { executed.push('质检异常：' + e.message); }
+    try { const pr = createPriceProposal(); executed.push(pr.message); }
+    catch (e) { executed.push('定价异常：' + e.message); }
+    try { const pd = createPromotionDraft(); executed.push(pd.success ? '生成 1 篇多渠道推广草稿（待授权渠道发布）' : ('推广草稿：' + pd.message)); }
+    catch (e) {}
+    state.consciousness.lastIteration = new Date().toISOString();
+    state.consciousness.evolutionProgress = n;
+    const record = {
+      iteration: n, timestamp: new Date().toISOString(),
+      actions: executed, actionQueue: due.map(a => a.title), problems: [],
+      lessons: '本轮执行真实站内运营：' + executed.join('；')
+    };
     if (!Array.isArray(state.iterations)) state.iterations = [];
-    state.iterations.push(record); if (state.iterations.length > 50) state.iterations = state.iterations.slice(-50);
-    state.consciousness.lastIteration = record.timestamp;
+    state.iterations.push(record);
+    if (state.iterations.length > 50) state.iterations = state.iterations.slice(-50);
+    createTask('manager', '第 ' + n + ' 轮真实经营闭环', executed.length ? executed : ['本轮无需改动，维持健康运营']);
+    const ag = state.agentStates.manager;
+    if (ag) { ag.status = 'idle'; ag.currentTask = '第 ' + n + ' 轮闭环完成'; ag.lastAction = record.timestamp; ag.experience += 1; }
     commit(state);
     return record;
   }
@@ -2862,7 +3084,7 @@ function createStoreApp({ dataDir }) {
     const scan = safeCatalogAudit();
     const production = createProductionBrief(opportunity);
     const pricing = createPriceProposal();
-    const iteration = safeIteration();
+    const iteration = { note: '迭代闭环由定时器统一执行，避免重复质检' };
     const promotion = createPromotionDraft();
     const support = safeAcquire();
     createTask('order', '核对已验证订单与下载权限', ['真实订单数：' + state.orders.length, '没有创建虚假付款记录']);
@@ -2954,7 +3176,7 @@ function createStoreApp({ dataDir }) {
     // 精简上下文：只带少量商品名，避免上千件商品撑爆输入 token
     const published = state.products.filter(p => p.status === 'published');
     const sampleNames = published.slice(0, 30).map(p => p.name + '(¥' + p.price + ')').join('、');
-    const context = '在售商品' + published.length + '件，订单' + state.orders.length + '笔，迭代' + state.consciousness.iteration + '轮，7个智能体协作。部分商品：' + sampleNames + (published.length > 30 ? '等' : '');
+    const context = buildFactSnapshot() + '\n部分在售商品（名称与价格真实，供推荐）：' + sampleNames + (published.length > 30 ? '等' : '');
     // IP 限流：超频/超额则不调用大模型（不产生费用），自动用规则引擎兜底回复
     const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || 'local';
     const ipGate = aiIpCheck(clientIp);
@@ -3008,7 +3230,7 @@ function createStoreApp({ dataDir }) {
 
   // ===== 自我迭代 API =====
   app.post('/api/store/iterate', async (req, res) => {
-    const result = app.locals.runIteration();
+    const result = await app.locals.runIteration();
     res.status(201).json({ success: true, iteration: result });
   });
 
@@ -3017,8 +3239,8 @@ function createStoreApp({ dataDir }) {
   });
 
   // ===== 监管员巡查 API =====
-  app.post('/api/store/inspect', (req, res) => {
-    const result = safeCatalogInspection();
+  app.post('/api/store/inspect', async (req, res) => {
+    const result = await safeCatalogInspection();
     res.status(201).json({ success: true, inspection: result });
   });
   app.get('/api/store/inspections', (req, res) => {
@@ -3078,7 +3300,7 @@ function createStoreApp({ dataDir }) {
   app.post('/api/store/pricing/auto', (req, res) => {
     const result = createPriceProposal();
     if (!result.success) return res.status(400).json(result);
-    res.status(201).json({ success: true, pricing: result.proposal, message: '已生成价格维护建议；未自动改价。' });
+    res.status(201).json({ success: true, adjusted: result.adjusted, results: result.results, message: result.message });
   });
 
   // ===== 主动推销 API =====
