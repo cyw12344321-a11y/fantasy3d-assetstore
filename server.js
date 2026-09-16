@@ -13,6 +13,14 @@ const fs = require('node:fs');
 const os = require('node:os');
 const { randomUUID } = require('node:crypto');
 
+// 跨平台取文件名：商品 filePath 多为 Windows 路径（D:\3DModels\x.blend，反斜杠），
+// 在 Linux（Render）上 path.basename 不认反斜杠，会把整段路径当文件名导致匹配失败。
+// 统一同时按 / 和 \ 拆分取最后一段，Windows/Linux 都正确。
+function fileBaseName(p) {
+  try { return String(p == null ? '' : p).split(/[\\/]/).filter(Boolean).pop() || ''; } catch (e) { return ''; }
+}
+
+
 // AI credentials are supplied only through the process environment. Never place
 // account keys in source code or expose a route that can change them remotely.
 const AI_CONFIG = {
@@ -78,7 +86,7 @@ async function paypalApi(apiPath, options) {
 }
 function buildAssetDownloadUrl(product) {
   if (!product) return '';
-  if (product.filePath) { try { return '/models/' + encodeURIComponent(path.basename(product.filePath)); } catch (e) { return ''; } }
+  if (product.filePath) { try { return '/models/' + encodeURIComponent(fileBaseName(product.filePath)); } catch (e) { return ''; } }
   return product.sourceUrl || product.modelUrl || '';
 }
 // ===== 自治商店配置 =====
@@ -384,7 +392,7 @@ function createStoreApp({ dataDir }) {
       collectBatches(frontendDir); collectBatches(__dirname);
       const modelAvailable = (product) => {
         if (!product.filePath) return false;
-        const filename = path.basename(product.filePath);
+        const filename = fileBaseName(product.filePath);
         const glbName = filename.replace(/\.(fbx|obj|blend|stl|dae|3ds)$/i, '.glb');
         const candidates = [path.join(frontendDir, 'models', filename), path.join(frontendDir, 'models', glbName)];
         for (const d of batchDirs) { candidates.push(path.join(d, filename), path.join(d, glbName)); }
@@ -472,7 +480,7 @@ function createStoreApp({ dataDir }) {
     let changed = 0;
     state.products.forEach(p => {
       if (p.source === 'local' && p.filePath) {
-        const filename = path.basename(p.filePath);
+        const filename = fileBaseName(p.filePath);
         const newCat = inferCategory(filename);
         if (p.category !== newCat) {
           p.category = newCat;
@@ -1072,7 +1080,7 @@ function createStoreApp({ dataDir }) {
     let redescribed = 0;
     allProducts.forEach(p => {
       if (p.source === 'local' && p.filePath) {
-        const fileName = path.basename(p.filePath);
+        const fileName = fileBaseName(p.filePath);
         const optimizedName = optimizeProductName(fileName);
         // 优化商品名
         if (p.name !== optimizedName && optimizedName.length > 1) {
@@ -3155,7 +3163,7 @@ function createStoreApp({ dataDir }) {
   app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found.' }));
   // ===== 3D模型文件访问（D盘模型可通过URL直接加载预览）=====
   app.get('/models/:filename', (req, res) => {
-    const filename = path.basename(req.params.filename);
+    const filename = fileBaseName(req.params.filename);
     const glbName = filename.replace(/\.(fbx|obj|blend|stl|dae|3ds)$/i, '.glb');
     const frontendDir = path.join(__dirname, 'frontend');
     
