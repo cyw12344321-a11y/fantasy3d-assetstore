@@ -6,6 +6,7 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
   console.error('[全局兜底] 捕获未处理Promise拒绝，服务器继续运行:', reason && reason.message ? reason.message : reason);
 });
+try { require('dotenv').config(); } catch (e) {}
 const express = require('express');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -43,6 +44,43 @@ const PAYMENT_CONFIG = {
   currency: 'USD'
 };
 
+// ===== PayPal 官方 Orders v2 封装（令牌缓存 + 请求） =====
+PAYMENT_CONFIG.mode = (process.env.PAYPAL_MODE || 'sandbox').toLowerCase();
+PAYMENT_CONFIG.live = PAYMENT_CONFIG.mode === 'live';
+PAYMENT_CONFIG.clientId = process.env.PAYPAL_CLIENT_ID || '';
+PAYMENT_CONFIG.clientSecret = process.env.PAYPAL_CLIENT_SECRET || '';
+PAYMENT_CONFIG.apiBase = PAYMENT_CONFIG.live ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com';
+PAYMENT_CONFIG.ready = Boolean(PAYMENT_CONFIG.clientId && PAYMENT_CONFIG.clientSecret);
+let _paypalToken = { value: '', exp: 0 };
+async function paypalAccessToken() {
+  if (!PAYMENT_CONFIG.ready) throw new Error('PayPal API 凭证未配置');
+  const now = Date.now();
+  if (_paypalToken.value && _paypalToken.exp - now > 60000) return _paypalToken.value;
+  const auth = Buffer.from(PAYMENT_CONFIG.clientId + ':' + PAYMENT_CONFIG.clientSecret).toString('base64');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  const r = await fetch(PAYMENT_CONFIG.apiBase + '/v1/oauth2/token', { method: 'POST', signal: ctrl.signal, headers: { Authorization: 'Basic ' + auth, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=client_credentials' });
+  clearTimeout(timer);
+  const txt = await r.text();
+  if (!r.ok) throw new Error('PayPal token HTTP' + r.status);
+  const j = JSON.parse(txt);
+  _paypalToken = { value: j.access_token, exp: now + (j.expires_in || 3200) * 1000 };
+  return j.access_token;
+}
+async function paypalApi(apiPath, options) {
+  options = options || {};
+  const token = await paypalAccessToken();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  const r = await fetch(PAYMENT_CONFIG.apiBase + apiPath, Object.assign({}, options, { signal: ctrl.signal, headers: Object.assign({ 'Content-Type': 'application/json' }, options.headers || {}, { Authorization: 'Bearer ' + token }) }));
+  clearTimeout(timer);
+  return r;
+}
+function buildAssetDownloadUrl(product) {
+  if (!product) return '';
+  if (product.filePath) { try { return '/models/' + encodeURIComponent(path.basename(product.filePath)); } catch (e) { return ''; } }
+  return product.sourceUrl || product.modelUrl || '';
+}
 // ===== 自治商店配置 =====
 const AUTONOMY_CONFIG = {
   localModelDir: process.env.LOCAL_MODEL_DIR || 'D:\\3DModels',
@@ -62,11 +100,50 @@ const AGENT_SYSTEM_PROMPTS = {
   inspector: '你是 Fantasy3D 自治商店的监管巡视智能体，是商店的纪检和质检。你独立于其他6个智能体，专门负责巡查问题：检查商品重复/损坏/描述不符、价格异常、智能体怠工、运营漏洞。你铁面无私，发现问题立即上报并督促整改，确保商店健康运转。你的口头禅是"巡查无死角，整改不过夜"。'
 };
 
+// ===== AI 预算与限流闸门：防止公开聊天接口被刷、上下文过大导致费用爆增 =====
+const AI_BUDGET = {
+  mainDaily: Number(process.env.AI_DAILY_LIMIT || 200),
+  qwenDaily: Number(process.env.QWEN_DAILY_LIMIT || 400),
+  maxUserChars: Number(process.env.AI_MAX_USER_CHARS || 2000),
+  maxContextChars: Number(process.env.AI_MAX_CONTEXT_CHARS || 6000),
+  ipPerMinute: Number(process.env.AI_IP_PER_MIN || 6),
+  ipPerDay: Number(process.env.AI_IP_PER_DAY || 60),
+  day: '', main: 0, qwen: 0, ip: new Map()
+};
+function aiBudgetToday() {
+  const d = new Date().toISOString().slice(0, 10);
+  if (d !== AI_BUDGET.day) { AI_BUDGET.day = d; AI_BUDGET.main = 0; AI_BUDGET.qwen = 0; AI_BUDGET.ip.clear(); }
+}
+function aiBudgetTake(kind) {
+  aiBudgetToday();
+  if (kind === 'qwen') { if (AI_BUDGET.qwen >= AI_BUDGET.qwenDaily) return false; AI_BUDGET.qwen++; return true; }
+  if (AI_BUDGET.main >= AI_BUDGET.mainDaily) return false; AI_BUDGET.main++; return true;
+}
+function aiIpCheck(ip) {
+  aiBudgetToday();
+  const now = Date.now();
+  let rec = AI_BUDGET.ip.get(ip);
+  if (!rec) { rec = { min: [], day: [] }; AI_BUDGET.ip.set(ip, rec); if (AI_BUDGET.ip.size > 5000) { const k = AI_BUDGET.ip.keys().next().value; AI_BUDGET.ip.delete(k); } }
+  rec.min = rec.min.filter(t => now - t < 60000);
+  rec.day = rec.day.filter(t => now - t < 86400000);
+  if (rec.min.length >= AI_BUDGET.ipPerMinute) return { ok: false, reason: 'slow_down' };
+  if (rec.day.length >= AI_BUDGET.ipPerDay) return { ok: false, reason: 'daily_capped' };
+  rec.min.push(now); rec.day.push(now);
+  return { ok: true };
+}
+
 async function callAI(agentId, userMessage, context) {
-  if (AI_CONFIG.provider === 'none' || !AI_CONFIG.apiKey) return null;
+  const hasInspectorKey = !!(AI_CONFIG.inspector && AI_CONFIG.inspector.apiKey);
+  const isInspectorCall = agentId === 'inspector';
+  if (AI_CONFIG.provider === 'none' && !(isInspectorCall && hasInspectorKey)) return null;
+  if (!AI_CONFIG.apiKey && !(isInspectorCall && hasInspectorKey)) return null;
+  const kind = isInspectorCall ? 'qwen' : 'main';
+  if (!aiBudgetTake(kind)) { console.warn('[AI预算] ' + kind + ' 已达每日上限，本次改用规则兜底'); return null; }
+  userMessage = String(userMessage || '').slice(0, AI_BUDGET.maxUserChars);
+  context = context ? String(context).slice(0, AI_BUDGET.maxContextChars) : context;
   try {
     const systemPrompt = AGENT_SYSTEM_PROMPTS[agentId] || '你是 Fantasy3D 商店的智能体助手。';
-    const contextStr = context ? `\n\n当前商店状态：\n${context}` : '';
+    const contextStr = context ? ('\n\n当前商店状态：\n' + context) : '';
     if (AI_CONFIG.provider === 'coze') {
       const botId = AI_CONFIG.cozeBotIds[agentId];
       if (!botId) return null;
@@ -292,6 +369,43 @@ function createStoreApp({ dataDir }) {
       state.agentStates.inspector = { status: 'idle', currentTask: '巡视全店', experience: 0, lastAction: null, learningLog: [], skills: { audit: 10, detection: 10, enforcement: 10 } };
     }
   }
+  // ===== 空店自动恢复：免费部署盘重启/清空后，从随仓库的 data/seed-products.json 恢复货架；只上架模型文件确实存在、能预览的商品 =====
+  (function restoreShelfIfEmpty() {
+    try {
+      const publishedNow = state.products.filter(p => p.status === 'published').length;
+      if (publishedNow > 0) return; // 已有在售商品，绝不覆盖店主数据
+      const seedFile = path.join(__dirname, 'data', 'seed-products.json');
+      if (!fs.existsSync(seedFile)) return;
+      const seeded = JSON.parse(fs.readFileSync(seedFile, 'utf8'));
+      if (!Array.isArray(seeded) || !seeded.length) return;
+      const frontendDir = path.join(__dirname, 'frontend');
+      const batchDirs = [];
+      const collectBatches = (base) => { try { for (const e of fs.readdirSync(base)) { if (e.toLowerCase().startsWith('models_batch')) { const fp = path.join(base, e); if (fs.statSync(fp).isDirectory()) batchDirs.push(fp); } } } catch (err) {} };
+      collectBatches(frontendDir); collectBatches(__dirname);
+      const modelAvailable = (product) => {
+        if (!product.filePath) return false;
+        const filename = path.basename(product.filePath);
+        const glbName = filename.replace(/\.(fbx|obj|blend|stl|dae|3ds)$/i, '.glb');
+        const candidates = [path.join(frontendDir, 'models', filename), path.join(frontendDir, 'models', glbName)];
+        for (const d of batchDirs) { candidates.push(path.join(d, filename), path.join(d, glbName)); }
+        candidates.push(path.join(AUTONOMY_CONFIG.localModelDir, '_preview', filename), path.join(AUTONOMY_CONFIG.localModelDir, '_preview', glbName), path.join(AUTONOMY_CONFIG.localModelDir, filename));
+        return candidates.some(p => { try { return fs.existsSync(p); } catch (e) { return false; } });
+      };
+      let onShelf = 0;
+      const restored = seeded.map(sp => {
+        const item = structuredClone(sp);
+        const ok = modelAvailable(item);
+        item.status = ok ? 'published' : 'draft';
+        if (!item.licenseStatus) item.licenseStatus = 'owner_managed';
+        if (!item.deliveryStatus) item.deliveryStatus = 'owner_managed';
+        if (ok) onShelf++;
+        return item;
+      });
+      state.products = restored;
+      try { commit(state); } catch (e) {}
+      console.log('[种子恢复] 载入种子 ' + restored.length + ' 件；模型可预览并上架 ' + onShelf + ' 件；其余转草稿。');
+    } catch (e) { console.error('[种子恢复] 失败（不影响启动）:', e.message); }
+  })();
   function commit(next) {
     const tempFile = dataFile + '.tmp';
     fs.writeFileSync(tempFile, JSON.stringify(next, null, 2), { encoding: 'utf8', mode: 0o600 });
@@ -314,7 +428,8 @@ function createStoreApp({ dataDir }) {
       '/api/store/channels', '/api/stats/visits', '/api/store/products'
     ]);
     const isPublicOfficeRead = req.method === 'GET' && publicOfficeReads.has(req.path);
-    if (!isLocalHost && host !== allowedHost && !isPublicOfficeRead) {
+    // 公开商店：未配置 ALLOWED_HOST 时默认对全网开放；仅当显式设置白名单域名才校验（办公区只读始终公开）
+    if (!isLocalHost && allowedHost && host !== allowedHost && !isPublicOfficeRead) {
       return res.status(403).json({ error: 'Host not allowed.' });
     }
     const origin = req.headers.origin;
@@ -412,16 +527,62 @@ function createStoreApp({ dataDir }) {
     if (!product) return res.status(404).json({ error: 'This product is not available.' });
     res.json(product);
   });
-  app.post('/api/order/create', (req, res) => {
-    const { productId, email } = req.body || {};
-    if (!validEmail(email)) return res.status(400).json({ error: 'Enter a valid email address for the purchase record.' });
-    const product = state.products.find(p => p.productId === productId && p.status === 'published');
-    if (!product) return res.status(400).json({ error: 'This product is not available.' });
-    if (state.orders.length >= 10000) return res.status(409).json({ error: 'The order limit has been reached.' });
-    const orderId = 'PAY-' + randomUUID();
-    const order = { orderId, productId, productName: product.name, price: product.price, email: email.trim().toLowerCase(), status: 'awaiting_payment', createdAt: new Date().toISOString(), paymentMethod: 'PayPal', paymentUrl: PAYMENT_CONFIG.paypalMe };
-    commit({ ...state, orders: [...state.orders, order] });
-    res.status(201).json({ success: true, order, paymentUrl: PAYMENT_CONFIG.paypalMe, message: 'Payment record created. The order remains awaiting_payment until PayPal confirms payment.' });
+  app.post('/api/order/create', async (req, res) => {
+    try {
+      const body = req.body || {};
+      const productId = body.productId, email = body.email;
+      if (!validEmail(email)) return res.status(400).json({ error: 'Enter a valid email address for the purchase record.' });
+      const product = state.products.find(p => p.productId === productId && p.status === 'published');
+      if (!product) return res.status(400).json({ error: 'This product is not available.' });
+      if (state.orders.length >= 10000) return res.status(409).json({ error: 'The order limit has been reached.' });
+      const orderId = 'PAY-' + randomUUID();
+      const fwdProto = req.get('x-forwarded-proto') || req.protocol;
+      const origin = process.env.PUBLIC_BASE_URL || (fwdProto + '://' + req.get('host'));
+      const baseOrder = { orderId: orderId, productId: productId, productName: product.name, price: Number(product.price), email: email.trim().toLowerCase(), status: 'awaiting_payment', createdAt: new Date().toISOString(), paymentMethod: 'PayPal' };
+      if (PAYMENT_CONFIG.ready) {
+        const ppBody = { intent: 'CAPTURE', application_context: { brand_name: 'Fantasy3D', user_action: 'PAY_NOW', return_url: origin + '/checkout.html?ppreturn=1', cancel_url: origin + '/checkout.html?pid=' + encodeURIComponent(productId) + '&ppcancelled=1' }, purchase_units: [{ custom_id: orderId, description: String(product.name).slice(0, 120), amount: { currency_code: PAYMENT_CONFIG.currency, value: Number(product.price).toFixed(2) } }] };
+        const pr = await paypalApi('/v2/checkout/orders', { method: 'POST', body: JSON.stringify(ppBody) });
+        const pj = await pr.json();
+        if (!pr.ok || !pj.id) throw new Error('PayPal create HTTP' + pr.status + ' ' + (pj.message || ''));
+        const approve = (pj.links || []).find(l => l.rel === 'approve');
+        const order = Object.assign({}, baseOrder, { paypalOrderId: pj.id, paymentUrl: approve ? approve.href : '' });
+        commit(Object.assign({}, state, { orders: state.orders.concat([order]) }));
+        return res.status(201).json({ success: true, mode: 'api', order: order, approvalUrl: order.paymentUrl, paymentUrl: order.paymentUrl });
+      }
+      const fallback = Object.assign({}, baseOrder, { paymentUrl: PAYMENT_CONFIG.paypalMe });
+      commit(Object.assign({}, state, { orders: state.orders.concat([fallback]) }));
+      return res.status(201).json({ success: true, mode: 'me', order: fallback, paymentUrl: PAYMENT_CONFIG.paypalMe, message: 'Payment record created. The order remains awaiting_payment until PayPal confirms payment.' });
+    } catch (e) {
+      console.error('[PayPal] create order failed:', e.message);
+      return res.status(502).json({ error: 'PayPal 订单创建失败，请稍后重试。' });
+    }
+  });
+  app.post('/api/order/capture', async (req, res) => {
+    try {
+      const token = (req.body || {}).token;
+      if (!token || typeof token !== 'string') return res.status(400).json({ error: 'missing paypal token' });
+      const exist = state.orders.find(o => o.paypalOrderId === token);
+      if (!exist) return res.status(404).json({ error: 'order not found' });
+      if (['paid', 'fulfilled'].includes(exist.status)) return res.json({ success: true, already: true, order: exist });
+      if (!PAYMENT_CONFIG.ready) return res.status(503).json({ error: 'PayPal API not configured' });
+      const cr = await paypalApi('/v2/checkout/orders/' + encodeURIComponent(token) + '/capture', { method: 'POST', body: JSON.stringify({}) });
+      const cj = await cr.json();
+      if (!cr.ok) return res.status(402).json({ error: 'paypal not captured', paypalStatus: cj.status });
+      const pu = cj.purchase_units && cj.purchase_units[0];
+      const cap = pu && pu.payments && pu.payments.captures && pu.payments.captures[0];
+      const completed = cj.status === 'COMPLETED' && cap && cap.status === 'COMPLETED';
+      if (!completed) return res.status(402).json({ error: 'payment not completed', paypalStatus: cj.status });
+      const paidAmount = cap.amount ? Number(cap.amount.value) : NaN;
+      if (!Number.isNaN(paidAmount) && paidAmount + 0.01 < Number(exist.price)) return res.status(402).json({ error: 'paid amount less than price' });
+      const product = state.products.find(p => p.productId === exist.productId);
+      const updated = Object.assign({}, exist, { status: 'fulfilled', paidAt: new Date().toISOString(), paypalCaptureId: cap.id, downloadUrl: buildAssetDownloadUrl(product), deliveryStatus: 'delivered' });
+      commit(Object.assign({}, state, { orders: state.orders.map(o => o.orderId === exist.orderId ? updated : o) }));
+      console.log('[PayPal] paid & auto-delivered:', updated.orderId, '$' + updated.price);
+      return res.json({ success: true, order: updated });
+    } catch (e) {
+      console.error('[PayPal] capture failed:', e.message);
+      return res.status(502).json({ error: 'capture failed: ' + e.message });
+    }
   });
   app.get('/api/orders/list', (req, res) => {
     if (!validEmail(req.query.email)) return res.status(400).json({ error: 'Enter a valid email address.' });
@@ -2781,16 +2942,22 @@ function createStoreApp({ dataDir }) {
     }
     const userMsg = { role: 'user', content: message.trim(), timestamp: new Date().toISOString() };
     const lang = detectLanguage(message.trim());
-    // 构建商店上下文给大模型
+    const safeMessage = message.trim().slice(0, AI_BUDGET.maxUserChars);
+    // 精简上下文：只带少量商品名，避免上千件商品撑爆输入 token
     const published = state.products.filter(p => p.status === 'published');
-    const context = `商品数量：${published.length}件，订单数量：${state.orders.length}笔，迭代轮次：${state.consciousness.iteration}，团队成员：6个智能体。商品列表：${published.map(p => `${p.name}(¥${p.price})`).join('、')}`;
-    // 优先调用大模型，失败则用规则引擎兜底
-    let reply = await callAI(agent.id, message.trim(), context);
+    const sampleNames = published.slice(0, 30).map(p => p.name + '(¥' + p.price + ')').join('、');
+    const context = '在售商品' + published.length + '件，订单' + state.orders.length + '笔，迭代' + state.consciousness.iteration + '轮，7个智能体协作。部分商品：' + sampleNames + (published.length > 30 ? '等' : '');
+    // IP 限流：超频/超额则不调用大模型（不产生费用），自动用规则引擎兜底回复
+    const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || 'local';
+    const ipGate = aiIpCheck(clientIp);
+    let reply = null;
+    if (ipGate.ok) { reply = await callAI(agent.id, safeMessage, context); }
+    else { console.warn('[AI预算] IP限流(' + ipGate.reason + '): ' + clientIp); }
     let aiMode = false;
     if (reply) {
       aiMode = true;
     } else {
-      reply = agentHandlers[agent.id](message.trim());
+      reply = agentHandlers[agent.id](safeMessage);
       if (lang !== 'zh') {
         reply = translateReply(agent.id, reply, lang);
       }
