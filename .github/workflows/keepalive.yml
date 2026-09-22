@@ -1,0 +1,25 @@
+name: keep-fantasy3d-alive
+
+# 免费保活：每 10 分钟唤醒一次 Render 免费实例，使其不休眠，
+# 服务器自带的 7 个定时器（迭代/扫描/调研/雷达/推广草稿/巡查/会议）即可按时真实运转。
+# 分钟错开整点，避开 GitHub Actions 整点高峰，降低延迟导致的休眠。
+on:
+  schedule:
+    - cron: '7,17,27,37,47,57 * * * *'
+  workflow_dispatch:
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wake Render store
+        run: |
+          set -x
+          curl -fsS -L --max-time 90 -A "Mozilla/5.0 Fantasy3DKeepAlive" \
+            -o /dev/null -w "home:%{http_code}\n" \
+            "https://fantasy3d-assetstores.onrender.com/?hb=${GITHUB_RUN_NUMBER}"
+          sleep 3
+          curl -fsS -L --max-time 90 -A "Mozilla/5.0 Fantasy3DKeepAlive" \
+            -o /dev/null -w "agents:%{http_code}\n" \
+            "https://fantasy3d-assetstores.onrender.com/api/agents"
