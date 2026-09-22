@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>发起购买 | Fantasy3D 自治资产商店</title>
+<title>购买全站合集 | Fantasy3D 自治资产商店</title>
+<meta name="description" content="Fantasy3D Mega Bundle 全站 3D 模型合集，统一价 $1.99，支持 PayPal / Apple Pay / 信用卡，付款后邮件交付下载。">
 <link rel="stylesheet" href="store.css">
 <script src="shared.js" defer></script>
-<script src="checkout.js" defer></script>
 </head>
 <body>
 <div class="app">
@@ -24,40 +24,49 @@
         <a href="orders.html">订单</a>
         <a href="about.html">关于</a>
         <a href="contact.html">联系</a>
-        <a href="admin.html" class="admin-link">管理</a>
       </nav>
     </div>
   </header>
-  <aside class="demo-banner" aria-label="Payment information" style="background:linear-gradient(90deg,#1a2f1a,#0f1f0f);border-color:#2d5a2d;">
-    <strong>PayPal 真实付款链路</strong>
-    <span>填写邮箱后会创建付款记录并跳转至 PayPal，订单仅在 PayPal 确认付款后变为已付款并交付。</span>
-    <small id="serviceStatus" role="status">正在连接商店服务…</small>
+  <aside class="demo-banner" aria-label="Payment information" style="background:linear-gradient(90deg,#0f2740,#0a1c30);border-color:#1f4f7a;">
+    <strong>💎 全站模型合集 Mega Bundle · 统一价 $1.99 USD</strong>
+    <span>在 PayPal 官方安全收银台付款，支持 PayPal / Apple Pay / 借记卡·信用卡；付款后由订单员通过邮件交付下载。</span>
   </aside>
   <main class="checkout-container">
-    <div class="checkout-card">
-      <h1>发起购买</h1>
-      <p class="page-intro" id="productName">正在读取商品…</p>
-      <form id="checkoutForm" novalidate>
-        <div class="form-row">
-          <label for="productId">商品 ID</label>
-          <input id="productId" readonly>
-        </div>
-        <div class="form-row">
-          <label for="buyerEmail">订单查询邮箱</label>
-          <input id="buyerEmail" type="email" required maxlength="254" autocomplete="email" placeholder="you@example.com" aria-describedby="emailHelp">
-          <small id="emailHelp">用于查询本笔订单记录；付款状态以 PayPal 确认为准。</small>
-        </div>
-        <div class="total-line">价格：$<span id="priceDisplay">—</span> USD</div>
-        <p class="sample-note">继续后请在 PayPal 中支付页面所示金额，并保留付款凭证；本页面不代表已完成付款。</p>
-        <button id="submitOrder" type="submit" disabled>前往 PayPal</button>
-      </form>
-      <p id="checkoutMessage" class="feedback" role="status">正在读取商品…</p>
-      <button id="retryProduct" class="filter-btn" type="button" hidden>重试</button>
-      <p id="successMsg" class="success-link" hidden><a href="orders.html">查看订单状态</a></p>
-      <p class="return-link"><a href="store.html">返回商店</a> · <a href="orders.html">我的订单</a></p>
+    <div class="checkout-card" style="max-width:600px;margin:0 auto;">
+      <h1>💎 Fantasy3D Mega Bundle</h1>
+      <p class="page-intro">全站 3D 模型合集 · 一次付款，打包下载</p>
+
+      <div style="display:flex;align-items:baseline;justify-content:space-between;background:#111a22;border:1px solid #22303f;border-radius:10px;padding:16px 18px;margin:16px 0;">
+        <span style="color:#e0e8f0;font-weight:bold;">Fantasy3D 全站模型合集（数字下载）</span>
+        <span style="color:#ffd770;font-size:26px;font-weight:bold;">$1.99 <small style="font-size:13px;color:#8a98a5;">USD</small></span>
+      </div>
+
+      <ul style="color:#c2cdd8;line-height:1.9;font-size:14px;padding-left:20px;">
+        <li>合集包含商店上架的全场 3D 模型，覆盖场景、角色、道具、植被等品类。</li>
+        <li>提供 GLB / FBX / OBJ 等常用数字格式，可直接导入 Unity、Unreal、Cocos Creator 使用。</li>
+        <li>纯数字商品，无实物、无需收货地址，全球均可购买。</li>
+        <li>付款后由订单员把合集下载链接发送到你在 PayPal 付款时使用的邮箱。</li>
+      </ul>
+
+      <a href="https://www.paypal.com/ncp/payment/S8PBHCPVAXFUN" target="_blank" rel="noopener"
+         style="display:block;text-align:center;background:#ffc439;color:#1a2b42;padding:16px 28px;border-radius:30px;text-decoration:none;font-weight:bold;font-size:18px;margin:18px 0 8px;box-shadow:0 6px 18px rgba(255,196,57,0.35);">
+        🛒 Buy with PayPal · $1.99 USD
+      </a>
+      <p class="sample-note" style="text-align:center;">点击后跳转 PayPal 官方收银台，支持 PayPal 余额、Apple Pay、借记卡 / 信用卡，付款信息由 PayPal 加密处理。</p>
+
+      <div style="margin-top:18px;border-top:1px solid #22303f;padding-top:14px;color:#9fb0bd;font-size:13px;line-height:1.9;">
+        <strong style="color:#c2cdd8;">购买流程：</strong>
+        <ol style="margin:6px 0 0;padding-left:20px;">
+          <li>点击上方黄色按钮，在 PayPal 页面支付 $1.99。</li>
+          <li>支付成功后，订单员会把合集下载链接发到你的付款邮箱。</li>
+          <li>若 24 小时内未收到邮件，请联系客服补发。</li>
+        </ol>
+      </div>
+      <p style="color:#9fb0bd;font-size:13px;">客服邮箱：<strong>715341216@qq.com</strong>（订单查询、售后、补发下载）</p>
+      <p class="return-link"><a href="store.html">返回商店</a> · <a href="contact.html">联系客服</a></p>
     </div>
   </main>
-  <footer class="site-footer"><p>Fantasy3D ©2026 · PayPal 付款 · 付款确认后交付</p></footer>
+  <footer class="site-footer"><p>Fantasy3D ©2026 · PayPal 安全付款 · 付款确认后邮件交付</p></footer>
 </div>
 </body>
 </html>

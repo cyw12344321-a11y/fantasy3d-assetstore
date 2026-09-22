@@ -1,6 +1,8 @@
 (() => {
   "use strict";
   const { request, node, message, money } = window.FantasyStore;
+  // 真实收款：PayPal 托管的全站合集收银台（$1.99，支持 PayPal / Apple Pay / 借记卡·信用卡）
+  const PAYPAL_BUNDLE_URL = "https://www.paypal.com/ncp/payment/S8PBHCPVAXFUN";
   const grid = document.getElementById("productGrid");
   const feedback = document.getElementById("storeMessage");
   const modal = document.getElementById("productModal");
@@ -202,7 +204,7 @@
     cartModal.showModal();
     cartModal.querySelector(".modal-close").addEventListener("click", () => { cartModal.close(); cartModal.remove(); });
     const buyBtn = cartModal.querySelector(".modal-buy");
-    if (buyBtn) buyBtn.addEventListener("click", () => { window.location.href = "checkout.html"; });
+    if (buyBtn) buyBtn.addEventListener("click", () => { window.open(PAYPAL_BUNDLE_URL, "_blank", "noopener"); });
   }
 
   function render() {
@@ -248,7 +250,7 @@
         // 更新购买按钮
         const buyBtn = document.getElementById("buyBtn");
         buyBtn.textContent = t("buyNow");
-        buyBtn.onclick = () => { if (selectedProduct) window.location.href = `checkout.html?pid=${encodeURIComponent(selectedProduct.productId)}`; };
+        buyBtn.onclick = () => { window.open(PAYPAL_BUNDLE_URL, "_blank", "noopener"); };
         // 加入购物车按钮
         let addCartBtn = document.getElementById("addCartBtn");
         if (!addCartBtn) {
