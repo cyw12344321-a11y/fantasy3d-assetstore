@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://fantasy3d-assetstores.onrender.com/sitemap.xml
