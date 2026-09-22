@@ -524,7 +524,8 @@ function createStoreApp({ dataDir }) {
       '/api/workshop/state',
       '/api/store/channels', '/api/stats/visits', '/api/store/products'
     ]);
-    const isPublicOfficeRead = req.method === 'GET' && publicOfficeReads.has(req.path);
+    const isPublicWorkshopAsset = req.method === 'GET' && req.path.startsWith('/workshop-runtime/');
+    const isPublicOfficeRead = req.method === 'GET' && (publicOfficeReads.has(req.path) || isPublicWorkshopAsset);
     // 公开商店：未配置 ALLOWED_HOST 时默认对全网开放；仅当显式设置白名单域名才校验（办公区只读始终公开）
     if (!isLocalHost && (!allowedHost || host !== allowedHost) && !isPublicOfficeRead) {
       return res.status(403).json({ error: 'Host not allowed.' });
