@@ -1,0 +1,90 @@
+{
+  "schema": "fantasy3d.fixture-manifest.v1",
+  "roomId": "fantasy3d-ai-workshop-mvp",
+  "baseline": {
+    "type": "hemisphere",
+    "sky": "#c8e4ff",
+    "ground": "#14191c",
+    "intensity": 1.35
+  },
+  "fixtures": [
+    {
+      "id": "AreaLight_1",
+      "type": "rect-area",
+      "position": [
+        4.0,
+        5.0,
+        2.54
+      ],
+      "energy": 420.0,
+      "width": 3.0,
+      "height": 2.0,
+      "color": "#fff1cd"
+    },
+    {
+      "id": "AreaLight_2",
+      "type": "rect-area",
+      "position": [
+        12.0,
+        4.0,
+        2.54
+      ],
+      "energy": 420.0,
+      "width": 3.0,
+      "height": 2.0,
+      "color": "#fff1cd"
+    },
+    {
+      "id": "AreaLight_3",
+      "type": "rect-area",
+      "position": [
+        20.0,
+        5.0,
+        2.54
+      ],
+      "energy": 420.0,
+      "width": 3.0,
+      "height": 2.0,
+      "color": "#fff1cd"
+    },
+    {
+      "id": "AreaLight_4",
+      "type": "rect-area",
+      "position": [
+        4.0,
+        11.0,
+        2.54
+      ],
+      "energy": 420.0,
+      "width": 3.0,
+      "height": 2.0,
+      "color": "#fff1cd"
+    },
+    {
+      "id": "AreaLight_5",
+      "type": "rect-area",
+      "position": [
+        12.0,
+        12.0,
+        2.54
+      ],
+      "energy": 420.0,
+      "width": 3.0,
+      "height": 2.0,
+      "color": "#fff1cd"
+    },
+    {
+      "id": "AreaLight_6",
+      "type": "rect-area",
+      "position": [
+        20.0,
+        11.0,
+        2.54
+      ],
+      "energy": 420.0,
+      "width": 3.0,
+      "height": 2.0,
+      "color": "#fff1cd"
+    }
+  ]
+}

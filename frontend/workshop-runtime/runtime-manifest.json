@@ -1,0 +1,160 @@
+{
+  "schema": "fantasy3d.runtime-manifest.v1",
+  "roomId": "fantasy3d-ai-workshop-mvp",
+  "generatedFrom": "renders/form/fantasy3d-ai-workshop-form.blend",
+  "meshyCalled": false,
+  "geometryTiers": {
+    "high": {
+      "path": "fantasy3d-workshop-high.glb",
+      "sha256": "d924dba02c231915437b726e38b69e17206847135b9457d4f1b1029d63689257",
+      "triangles": 15376,
+      "bytes": 721804
+    },
+    "vlow": {
+      "path": "fantasy3d-workshop-vlow.glb",
+      "sha256": "f3f741adeedda582906f494ba2f5ccb63e5c639154bffd5d6a3105fadc21c1ba",
+      "triangles": 12616,
+      "bytes": 593824
+    }
+  },
+  "textureTiers": {
+    "high": {
+      "embedded": true,
+      "maxTextureBytes": 0
+    },
+    "vlow": {
+      "embedded": true,
+      "maxTextureBytes": 0
+    }
+  },
+  "lightmap": {
+    "path": "lightmap-baseline.png",
+    "sha256": "1d76a401bd520db271c17c8ea842ba535033ebbfdd41bc15afeab911637d8beb",
+    "role": "neutral baked baseline"
+  },
+  "lightingManifest": {
+    "path": "fixture-manifest.json",
+    "sha256": "7df668fd0437f12de77d75e4f1ccf6c77811858cfb7eedf4589b4788d52de647"
+  },
+  "productionCamera": {
+    "name": "production camera",
+    "viewport": [
+      1280,
+      900
+    ],
+    "verticalFovDegrees": 55
+  },
+  "cameras": [
+    "production camera",
+    "Camera 01",
+    "Camera 02",
+    "Camera 03",
+    "Camera 04",
+    "Camera 05",
+    "Camera 06"
+  ],
+  "anchors": {
+    "entrance": [
+      12,
+      15.3,
+      0
+    ],
+    "conference": [
+      12,
+      8,
+      0
+    ],
+    "modelTable": [
+      18.2,
+      8,
+      0
+    ],
+    "displayRack": [
+      22.1,
+      8,
+      0
+    ],
+    "dataWall": [
+      12,
+      1.1,
+      1
+    ],
+    "productionCamera": [
+      18,
+      13.2,
+      1.6
+    ]
+  },
+  "collisionZones": [
+    {
+      "id": "north-wall",
+      "rect": [
+        0,
+        0,
+        24,
+        0.35
+      ]
+    },
+    {
+      "id": "west-wall",
+      "rect": [
+        0,
+        0,
+        0.35,
+        16
+      ]
+    },
+    {
+      "id": "east-wall",
+      "rect": [
+        23.65,
+        0,
+        0.35,
+        16
+      ]
+    },
+    {
+      "id": "model-table",
+      "rect": [
+        17,
+        6.2,
+        2.4,
+        3.6
+      ]
+    },
+    {
+      "id": "display-rack",
+      "rect": [
+        21.4,
+        4.5,
+        1.4,
+        7
+      ]
+    },
+    {
+      "id": "conference",
+      "rect": [
+        9.75,
+        5.75,
+        4.5,
+        4.5
+      ]
+    }
+  ],
+  "readinessSignals": [
+    "geometry",
+    "lighting",
+    "agents",
+    "gateway",
+    "interactions"
+  ],
+  "browserCaptures": {
+    "desktop": "browser-capture-desktop.png",
+    "mobile": "browser-capture-mobile.png"
+  },
+  "performanceBudget": {
+    "maxSceneTriangles": 50000,
+    "maxVLowBytes": 2000000,
+    "maxHighTextureBytes": 33554432
+  }
+}
