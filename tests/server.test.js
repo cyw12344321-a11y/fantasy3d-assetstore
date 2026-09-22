@@ -58,6 +58,26 @@ test('cross-origin, rebinding and malformed requests cannot modify the local sto
   assert.equal((await fetch(service.url + '/store.json')).status, 404);
 });
 
+test('public workshop runtime assets remain readable without opening protected routes', async t => {
+  const service = await startServer({ dataDir: newDataDir() });
+  t.after(() => service.close());
+  const externalHost = { Host: 'fantasy3d-assetstores.onrender.com' };
+  const assetStatus = await new Promise((resolve, reject) => {
+    http.get(service.url + '/workshop-runtime/runtime-manifest.json', { headers: externalHost }, response => {
+      response.resume();
+      resolve(response.statusCode);
+    }).on('error', reject);
+  });
+  const protectedStatus = await new Promise((resolve, reject) => {
+    http.get(service.url + '/api/admin/products', { headers: externalHost }, response => {
+      response.resume();
+      resolve(response.statusCode);
+    }).on('error', reject);
+  });
+  assert.equal(assetStatus, 200);
+  assert.equal(protectedStatus, 403);
+});
+
 test('corrupt local data causes an explicit startup error and is preserved', async () => {
   const dataDir = newDataDir();
   const dataFile = path.join(dataDir, 'store.json');
