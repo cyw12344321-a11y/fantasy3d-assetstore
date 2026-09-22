@@ -38,6 +38,43 @@ test('7 agents are listed with roles and online status', async () => {
   }
 });
 
+test('workshop gateway exposes canonical agent IDs with legacy aliases', async () => {
+  const service = await startServer({ dataDir: newDataDir() });
+  try {
+    const { status, data } = await json(service, '/api/workshop/state');
+    assert.equal(status, 200);
+    assert.equal(data.schema, 'fantasy3d.workshop-state.v1');
+    assert.deepEqual(data.room.boundsMeters, [24, 16, 2.7]);
+    assert.deepEqual(data.aliases, {
+      recommendation: 'recommender',
+      support: 'receptionist',
+      listing: 'production'
+    });
+    assert.deepEqual(data.agents.map(agent => agent.id).sort(), [
+      'inspector', 'manager', 'order', 'production', 'receptionist', 'recommender', 'researcher'
+    ]);
+  } finally {
+    await service.close();
+  }
+});
+
+test('canonical agent IDs remain compatible with historical chat storage', async () => {
+  const service = await startServer({ dataDir: newDataDir() });
+  try {
+    const chat = await json(service, '/api/agents/receptionist/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message: '如何下载文件' })
+    });
+    assert.equal(chat.status, 201);
+    assert.equal(chat.data.agent.id, 'support');
+    const history = await json(service, '/api/agents/receptionist/history');
+    assert.equal(history.status, 200);
+    assert.ok(history.data.messages.length >= 2);
+  } finally {
+    await service.close();
+  }
+});
+
 test('store consciousness exposes team, stats and mantra', async () => {
   const service = await startServer({ dataDir: newDataDir() });
   try {
@@ -79,7 +116,7 @@ test('team meeting produces opinions, decision and action items', async () => {
     });
     assert.equal(status, 201);
     assert.equal(data.meeting.topic, '测试会议');
-    assert.equal(data.meeting.opinions.length, 5);
+    assert.equal(data.meeting.opinions.length, 6);
     assert.ok(data.meeting.decision);
     assert.ok(data.meeting.actionItems.length >= 3);
   } finally {
