@@ -20,6 +20,24 @@ function fileBaseName(p) {
   try { return String(p == null ? '' : p).split(/[\\/]/).filter(Boolean).pop() || ''; } catch (e) { return ''; }
 }
 
+// Public workshop IDs are stable and role-oriented. The existing store keeps
+// its historical IDs internally so persisted data and older clients continue
+// to work without migration risk.
+const AGENT_ID_ALIASES = Object.freeze({
+  recommendation: 'recommender',
+  support: 'receptionist',
+  listing: 'production'
+});
+const CANONICAL_TO_LEGACY_AGENT_ID = Object.freeze(Object.fromEntries(
+  Object.entries(AGENT_ID_ALIASES).map(([legacyId, canonicalId]) => [canonicalId, legacyId])
+));
+function canonicalAgentId(id) {
+  return AGENT_ID_ALIASES[id] || id;
+}
+function legacyAgentId(id) {
+  return CANONICAL_TO_LEGACY_AGENT_ID[id] || id;
+}
+
 
 // AI credentials are supplied only through the process environment. Never place
 // account keys in source code or expose a route that can change them remotely.
@@ -503,11 +521,12 @@ function createStoreApp({ dataDir }) {
     const publicOfficeReads = new Set([
       '/office.html', '/office-bg.png', '/api/app-info', '/api/agents',
       '/api/store/tasks', '/api/store/meetings', '/api/store/workflow',
+      '/api/workshop/state',
       '/api/store/channels', '/api/stats/visits', '/api/store/products'
     ]);
     const isPublicOfficeRead = req.method === 'GET' && publicOfficeReads.has(req.path);
     // 公开商店：未配置 ALLOWED_HOST 时默认对全网开放；仅当显式设置白名单域名才校验（办公区只读始终公开）
-    if (!isLocalHost && allowedHost && host !== allowedHost && !isPublicOfficeRead) {
+    if (!isLocalHost && (!allowedHost || host !== allowedHost) && !isPublicOfficeRead) {
       return res.status(403).json({ error: 'Host not allowed.' });
     }
     const origin = req.headers.origin;
@@ -870,10 +889,10 @@ function createStoreApp({ dataDir }) {
   }
 
   // 店长智能体回复逻辑（团队协调 + 自我迭代）
-  function managerReply(input) {
+  async function managerReply(input) {
     const text = input.toLowerCase();
     if (/迭代|进化|升级|学习|改进|优化/.test(text)) {
-      const result = safeIteration();
+      const result = await safeIteration();
       return `🧠 店长已触发自我迭代！\n\n**迭代 #${result.iteration} 完成：**\n${result.actions.map(a => `• ${a}`).join('\n')}\n\n**团队状态：**\n${agents.map(a => `• ${a.avatar} ${a.name}：${state.agentStates[a.id]?.status || 'idle'}`).join('\n')}\n\n${state.consciousness.mantra}`;
     }
     if (/会议|商量|讨论|决策|团队/.test(text)) {
@@ -3125,6 +3144,43 @@ function createStoreApp({ dataDir }) {
     });
   });
 
+  app.get('/api/workshop/state', (req, res) => {
+    taskLedger();
+    const canonicalAgents = agents.map(agent => {
+      const agentState = state.agentStates[agent.id] || {};
+      return {
+        id: canonicalAgentId(agent.id),
+        legacyId: agent.id === canonicalAgentId(agent.id) ? null : agent.id,
+        name: agent.name,
+        role: agent.role,
+        description: agent.description,
+        online: true,
+        status: agentState.status || 'idle',
+        currentTask: agentState.currentTask || '待命',
+        experience: agentState.experience || 0,
+        lastAction: agentState.lastAction || null
+      };
+    });
+    const tasks = (state.tasks || []).slice(-30).reverse().map(task => ({
+      ...task,
+      agentId: canonicalAgentId(task.agentId),
+      legacyAgentId: task.agentId === canonicalAgentId(task.agentId) ? null : task.agentId
+    }));
+    res.json({
+      schema: 'fantasy3d.workshop-state.v1',
+      room: {
+        id: 'fantasy3d-ai-workshop',
+        boundsMeters: [24, 16, 2.7],
+        anchors: ['entrance', 'conference', 'modelTable', 'displayRack', 'dataWall', 'productionCamera']
+      },
+      aliases: AGENT_ID_ALIASES,
+      agents: canonicalAgents,
+      tasks,
+      workflow: workflowSummary(),
+      generatedAt: new Date().toISOString()
+    });
+  });
+
   app.get('/api/store/tasks', (req, res) => {
     taskLedger();
     res.json({ tasks: state.tasks.slice(-30).reverse(), promotionDrafts: state.promotionDrafts.slice(-20).reverse(), researchCandidates: state.researchCandidates.slice(-20).reverse() });
@@ -3158,13 +3214,13 @@ function createStoreApp({ dataDir }) {
   });
 
   app.get('/api/agents/:id/history', (req, res) => {
-    const agent = agents.find(a => a.id === req.params.id);
+    const agent = agents.find(a => a.id === legacyAgentId(req.params.id));
     if (!agent) return res.status(404).json({ error: 'Agent not found.' });
     res.json({ messages: getConversation(agent.id) });
   });
 
   app.post('/api/agents/:id/chat', async (req, res) => {
-    const agent = agents.find(a => a.id === req.params.id);
+    const agent = agents.find(a => a.id === legacyAgentId(req.params.id));
     if (!agent) return res.status(404).json({ error: 'Agent not found.' });
     const { message } = req.body || {};
     if (typeof message !== 'string' || !message.trim()) {
@@ -3187,7 +3243,7 @@ function createStoreApp({ dataDir }) {
     if (reply) {
       aiMode = true;
     } else {
-      reply = agentHandlers[agent.id](safeMessage);
+      reply = await agentHandlers[agent.id](safeMessage);
       if (lang !== 'zh') {
         reply = translateReply(agent.id, reply, lang);
       }
@@ -3201,7 +3257,7 @@ function createStoreApp({ dataDir }) {
   });
 
   app.post('/api/agents/:id/clear', (req, res) => {
-    const agent = agents.find(a => a.id === req.params.id);
+    const agent = agents.find(a => a.id === legacyAgentId(req.params.id));
     if (!agent) return res.status(404).json({ error: 'Agent not found.' });
     state.conversations[agent.id] = [];
     commit(state);
@@ -3487,7 +3543,7 @@ function createStoreApp({ dataDir }) {
 }
 
 // Render only exposes ports that listen on all interfaces. Local access still works on 127.0.0.1.
-async function startServer({ port = 0, dataDir, host = process.env.HOST || '0.0.0.0' } = {}) {
+async function startServer({ port = 0, dataDir, host = process.env.HOST || '127.0.0.1' } = {}) {
   const app = createStoreApp({ dataDir: dataDir || path.join(process.env.LOCALAPPDATA || os.homedir(), 'Fantasy3D', 'store-data') });
   const server = await new Promise((resolve, reject) => {
     const listener = app.listen(port, host, () => resolve(listener));
@@ -3576,7 +3632,7 @@ async function startServer({ port = 0, dataDir, host = process.env.HOST || '0.0.
 }
 
 if (require.main === module) {
-  startServer({ port: Number(process.env.PORT || 4000), dataDir: process.env.FANTASY3D_DATA_DIR, host: process.env.HOST || '0.0.0.0' }).then(service => {
+  startServer({ port: Number(process.env.PORT || 4000), dataDir: process.env.FANTASY3D_DATA_DIR, host: process.env.HOST || '127.0.0.1' }).then(service => {
     console.log(`Fantasy3D server listening: ${service.url}`);
     for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => service.close().then(() => process.exit(0)));
   }).catch(error => { console.error(error.message); process.exitCode = 1; });
