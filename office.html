@@ -122,6 +122,6 @@
     window.addEventListener('error', event => reportWorkshopBootError(event.message || 'Module load error'));
     window.addEventListener('unhandledrejection', event => reportWorkshopBootError(event.reason?.message || event.reason || 'Unhandled module rejection'));
   </script>
-  <script type="module" src="/workshop-runtime/workshop.js?v=20260923-generated-brand" onerror="reportWorkshopBootError('Unable to load workshop.js or one of its imports')"></script>
+  <script type="module" src="/workshop-runtime/workshop.js?v=20260923-independent-assets" onerror="reportWorkshopBootError('Unable to load workshop.js or one of its imports')"></script>
 </body>
 </html>
