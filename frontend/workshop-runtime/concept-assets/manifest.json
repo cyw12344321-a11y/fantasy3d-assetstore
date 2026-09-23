@@ -1,0 +1,28 @@
+{
+  "schema": "fantasy3d.generated-concept-assets.v1",
+  "source": "https://chatgpt.com/share/6ab2d974-6d6c-83ee-9ad5-4ac19a305c6b",
+  "usage": "Runtime art direction, agent identity, workstation language, and in-world design displays",
+  "assets": [
+    {
+      "path": "workshop-hero.png",
+      "sourceTitle": "奇幻3D人工智能创意工坊",
+      "runtimeUse": "In-world brand board and spatial material reference"
+    },
+    {
+      "path": "agent-roster.png",
+      "sourceTitle": "Fantasy3D AI七大智能体角色设定集",
+      "runtimeUse": "Seven-agent palette, silhouette, accessories, and in-world roster board"
+    },
+    {
+      "path": "workstation-board.png",
+      "sourceTitle": "Fantasy3D AI工作室角色与工作站设计板",
+      "runtimeUse": "Workstation identity and in-world workstation board"
+    },
+    {
+      "path": "runtime-overview.png",
+      "sourceTitle": "幻想3D AI 工作坊全景图",
+      "runtimeUse": "Archived runtime composition reference"
+    }
+  ],
+  "paidMeshyGeneration": false
+}
