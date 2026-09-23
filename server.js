@@ -337,6 +337,8 @@ function createStoreApp({ dataDir }) {
     iterations: [],
     // ===== 团队会议记录 =====
     meetings: [],
+    // ===== Workshop 生产/稽查工单（与商品和订单业务隔离）=====
+    workshopJobs: [],
     // ===== 学习知识库 =====
     knowledge: {
       faq: [],
@@ -371,6 +373,7 @@ function createStoreApp({ dataDir }) {
     if (!state.opportunityLog) state.opportunityLog = [];
     if (!state.acquisitionLog) state.acquisitionLog = [];
     if (!state.marketingLog) state.marketingLog = [];
+    if (!Array.isArray(state.workshopJobs)) state.workshopJobs = [];
     // 历史商品由店主独立上传和维护。启动时只补齐缺失的审核字段，绝不
     // 自动下架、改价、删除文件或修改已有商品内容。
     state.products.forEach(product => {
@@ -511,6 +514,8 @@ function createStoreApp({ dataDir }) {
   }
 
   const app = express();
+  const workshopSessions = new Map();
+  const workshopWrites = new Map();
   app.disable('x-powered-by');
   app.use((req, res, next) => {
     const host = (req.headers.host || '').toLowerCase();
@@ -525,9 +530,12 @@ function createStoreApp({ dataDir }) {
       '/api/store/channels', '/api/stats/visits', '/api/store/products'
     ]);
     const isPublicWorkshopAsset = req.method === 'GET' && req.path.startsWith('/workshop-runtime/');
+    const isPublicWorkshopWrite = req.method === 'POST' && (
+      req.path === '/api/workshop/jobs' || /^\/api\/workshop\/jobs\/[^/]+\/transitions$/.test(req.path)
+    );
     const isPublicOfficeRead = req.method === 'GET' && (publicOfficeReads.has(req.path) || isPublicWorkshopAsset);
     // 公开商店：未配置 ALLOWED_HOST 时默认对全网开放；仅当显式设置白名单域名才校验（办公区只读始终公开）
-    if (!isLocalHost && (!allowedHost || host !== allowedHost) && !isPublicOfficeRead) {
+    if (!isLocalHost && (!allowedHost || host !== allowedHost) && !isPublicOfficeRead && !isPublicWorkshopWrite) {
       return res.status(403).json({ error: 'Host not allowed.' });
     }
     const origin = req.headers.origin;
@@ -2770,6 +2778,63 @@ function createStoreApp({ dataDir }) {
     if (!Array.isArray(state.priceProposals)) state.priceProposals = [];
     return state.tasks;
   }
+  function workshopJobLedger() {
+    if (!Array.isArray(state.workshopJobs)) state.workshopJobs = [];
+    return state.workshopJobs;
+  }
+  function workshopClientIp(req) {
+    return String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || 'local';
+  }
+  function issueWorkshopSession(req) {
+    const ip = workshopClientIp(req);
+    const now = Date.now();
+    let session = workshopSessions.get(ip);
+    if (!session || session.expiresAt <= now) {
+      session = { token: randomUUID(), expiresAt: now + 15 * 60 * 1000 };
+      workshopSessions.set(ip, session);
+    }
+    if (workshopSessions.size > 1000) {
+      for (const [key, value] of workshopSessions) {
+        if (value.expiresAt <= now) workshopSessions.delete(key);
+      }
+    }
+    return session;
+  }
+  function authorizeWorkshopWrite(req, res) {
+    const ip = workshopClientIp(req);
+    const session = workshopSessions.get(ip);
+    const token = req.get('x-workshop-token');
+    if (!session || session.expiresAt <= Date.now() || !token || token !== session.token) {
+      res.status(403).json({ error: 'Workshop write session is missing or expired.' });
+      return false;
+    }
+    const now = Date.now();
+    const recent = (workshopWrites.get(ip) || []).filter(timestamp => now - timestamp < 60000);
+    if (recent.length >= 30) {
+      res.status(429).json({ error: 'Workshop write rate limit reached.' });
+      return false;
+    }
+    recent.push(now);
+    workshopWrites.set(ip, recent);
+    return true;
+  }
+  function workshopJobView(job) {
+    return { ...job, history: (job.history || []).slice(-20) };
+  }
+  function setWorkshopAgentState(job, status) {
+    const production = state.agentStates.listing;
+    const inspector = state.agentStates.inspector;
+    if (production) {
+      production.status = status === 'WORKING' ? 'working' : status === 'RETURN' ? 'queued' : 'idle';
+      production.currentTask = status === 'RETURN' ? `返工：${job.title}` : job.title;
+      production.lastAction = job.updatedAt;
+    }
+    if (inspector) {
+      inspector.status = status === 'INSPECTION' ? 'working' : 'idle';
+      inspector.currentTask = status === 'INSPECTION' ? `稽查：${job.title}` : '巡视全店';
+      inspector.lastAction = job.updatedAt;
+    }
+  }
   function channelRegistry() {
     if (!Array.isArray(state.channels)) {
       state.channels = [
@@ -3084,13 +3149,17 @@ function createStoreApp({ dataDir }) {
   }
   function workflowSummary() {
     taskLedger();
+    const workshopJobs = workshopJobLedger();
     const tasks = state.tasks || [];
     const done = tasks.filter(task => task.status === 'done').length;
     const queued = tasks.filter(task => task.status === 'queued' || task.status === 'working').length;
+    const activeWorkshopJobs = workshopJobs.filter(job => !['PASS', 'RETURN'].includes(job.status)).length;
     return {
       tasks: tasks.slice(-30).reverse(),
       completedTasks: done,
-      activeTasks: queued,
+      activeTasks: queued + activeWorkshopJobs,
+      workshopJobs: workshopJobs.length,
+      completedWorkshopJobs: workshopJobs.filter(job => ['PASS', 'RETURN'].includes(job.status)).length,
       promotionDrafts: state.promotionDrafts.filter(draft => draft.status === 'ready_for_review').length,
       priceProposals: state.priceProposals.filter(proposal => proposal.status === 'needs_review').length,
       publishedPromotions: state.promotionDrafts.filter(draft => draft.status === 'published').length,
@@ -3147,6 +3216,7 @@ function createStoreApp({ dataDir }) {
 
   app.get('/api/workshop/state', (req, res) => {
     taskLedger();
+    workshopJobLedger();
     const canonicalAgents = agents.map(agent => {
       const agentState = state.agentStates[agent.id] || {};
       return {
@@ -3169,6 +3239,7 @@ function createStoreApp({ dataDir }) {
     }));
     res.json({
       schema: 'fantasy3d.workshop-state.v1',
+      capabilities: { persistentJobs: true, inspectionDecisions: ['PASS', 'RETURN'] },
       room: {
         id: 'fantasy3d-ai-workshop',
         boundsMeters: [24, 16, 2.7],
@@ -3177,9 +3248,69 @@ function createStoreApp({ dataDir }) {
       aliases: AGENT_ID_ALIASES,
       agents: canonicalAgents,
       tasks,
+      jobs: state.workshopJobs.slice(-20).reverse().map(workshopJobView),
+      session: issueWorkshopSession(req),
       workflow: workflowSummary(),
       generatedAt: new Date().toISOString()
     });
+  });
+
+  app.post('/api/workshop/jobs', (req, res) => {
+    if (!authorizeWorkshopWrite(req, res)) return;
+    taskLedger();
+    workshopJobLedger();
+    const body = req.body || {};
+    const sourceTaskId = typeof body.sourceTaskId === 'string' ? body.sourceTaskId.slice(0, 100) : null;
+    const sourceTask = sourceTaskId ? state.tasks.find(task => task.id === sourceTaskId) : null;
+    const title = String(body.title || sourceTask?.title || 'Workshop 3D 资产生产任务').trim().slice(0, 160);
+    if (!title) return res.status(400).json({ error: 'A Workshop job title is required.' });
+    const now = new Date().toISOString();
+    const job = {
+      id: 'WORKSHOP-' + randomUUID(), sourceTaskId: sourceTask ? sourceTask.id : null,
+      title, status: 'NOTICE', progress: 0, decision: null,
+      createdAt: now, updatedAt: now, completedAt: null,
+      history: [{ status: 'NOTICE', progress: 0, at: now }]
+    };
+    state.workshopJobs.push(job);
+    if (state.workshopJobs.length > 30) state.workshopJobs = state.workshopJobs.slice(-30);
+    setWorkshopAgentState(job, job.status);
+    commit(state);
+    res.status(201).json({ success: true, job: workshopJobView(job) });
+  });
+
+  app.post('/api/workshop/jobs/:id/transitions', (req, res) => {
+    if (!authorizeWorkshopWrite(req, res)) return;
+    const job = workshopJobLedger().find(item => item.id === req.params.id);
+    if (!job) return res.status(404).json({ error: 'Workshop job not found.' });
+    const nextStatus = String((req.body || {}).status || '').toUpperCase();
+    const transitions = {
+      NOTICE: ['WORKING'],
+      WORKING: ['WORKING', 'INSPECTION'],
+      INSPECTION: ['PASS', 'RETURN'],
+      RETURN: [],
+      PASS: []
+    };
+    if (!transitions[job.status] || !transitions[job.status].includes(nextStatus)) {
+      return res.status(409).json({ error: `Invalid Workshop transition ${job.status} -> ${nextStatus}.` });
+    }
+    const requestedProgress = Number((req.body || {}).progress);
+    const progress = Number.isFinite(requestedProgress)
+      ? Math.max(job.progress, Math.min(100, Math.round(requestedProgress)))
+      : job.progress;
+    if (nextStatus === 'INSPECTION' && progress < 100) {
+      return res.status(409).json({ error: 'Inspection requires 100% production progress.' });
+    }
+    const now = new Date().toISOString();
+    job.status = nextStatus;
+    job.progress = nextStatus === 'PASS' || nextStatus === 'RETURN' ? 100 : progress;
+    job.decision = nextStatus === 'PASS' || nextStatus === 'RETURN' ? nextStatus : null;
+    job.updatedAt = now;
+    job.completedAt = job.decision ? now : null;
+    job.history.push({ status: job.status, progress: job.progress, at: now });
+    if (job.history.length > 20) job.history = job.history.slice(-20);
+    setWorkshopAgentState(job, job.status);
+    commit(state);
+    res.json({ success: true, job: workshopJobView(job) });
   });
 
   app.get('/api/store/tasks', (req, res) => {
