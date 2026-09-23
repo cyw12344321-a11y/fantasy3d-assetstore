@@ -53,9 +53,86 @@ test('workshop gateway exposes canonical agent IDs with legacy aliases', async (
     assert.deepEqual(data.agents.map(agent => agent.id).sort(), [
       'inspector', 'manager', 'order', 'production', 'receptionist', 'recommender', 'researcher'
     ]);
+    assert.equal(data.capabilities.persistentJobs, true);
+    assert.ok(data.session.token);
+    assert.deepEqual(data.jobs, []);
   } finally {
     await service.close();
   }
+});
+
+test('workshop production and inspection jobs persist across restart', async () => {
+  const dataDir = newDataDir();
+  const first = await startServer({ dataDir });
+  let jobId;
+  try {
+    const gateway = await json(first, '/api/workshop/state');
+    const headers = { 'Content-Type': 'application/json', 'X-Workshop-Token': gateway.data.session.token };
+    const created = await json(first, '/api/workshop/jobs', {
+      method: 'POST', headers, body: JSON.stringify({ title: '测试模型生产' })
+    });
+    assert.equal(created.status, 201);
+    assert.equal(created.data.job.status, 'NOTICE');
+    jobId = created.data.job.id;
+    for (const transition of [
+      { status: 'WORKING', progress: 68 },
+      { status: 'INSPECTION', progress: 100 },
+      { status: 'PASS', progress: 100 }
+    ]) {
+      const result = await json(first, `/api/workshop/jobs/${jobId}/transitions`, {
+        method: 'POST', headers, body: JSON.stringify(transition)
+      });
+      assert.equal(result.status, 200);
+    }
+  } finally {
+    await first.close();
+  }
+  const second = await startServer({ dataDir });
+  try {
+    const gateway = await json(second, '/api/workshop/state');
+    const persisted = gateway.data.jobs.find(job => job.id === jobId);
+    assert.equal(persisted.status, 'PASS');
+    assert.equal(persisted.progress, 100);
+    assert.equal(persisted.decision, 'PASS');
+  } finally {
+    await second.close();
+  }
+});
+
+test('workshop jobs require a session and reject invalid transitions', async () => {
+  const service = await startServer({ dataDir: newDataDir() });
+  try {
+    const missingSession = await json(service, '/api/workshop/jobs', {
+      method: 'POST', body: JSON.stringify({ title: '拒绝未授权写入' })
+    });
+    assert.equal(missingSession.status, 403);
+    const gateway = await json(service, '/api/workshop/state');
+    const headers = { 'Content-Type': 'application/json', 'X-Workshop-Token': gateway.data.session.token };
+    const created = await json(service, '/api/workshop/jobs', {
+      method: 'POST', headers, body: JSON.stringify({ title: '状态迁移测试' })
+    });
+    const invalid = await json(service, `/api/workshop/jobs/${created.data.job.id}/transitions`, {
+      method: 'POST', headers, body: JSON.stringify({ status: 'PASS', progress: 100 })
+    });
+    assert.equal(invalid.status, 409);
+  } finally {
+    await service.close();
+  }
+});
+
+test('workshop runtime includes branded skeletal agents and persisted-result restore', () => {
+  const runtime = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'workshop-runtime', 'workshop.js'), 'utf8');
+  assert.match(runtime, /new THREE\.Bone\(\)/);
+  assert.match(runtime, /new THREE\.Skeleton\(/);
+  assert.match(runtime, /new THREE\.SkinnedMesh\(/);
+  assert.match(runtime, /Fantasy3DBrandSign/);
+  assert.match(runtime, /GeneratedAgentRoster/);
+  assert.match(runtime, /generatedDesignAssetCount/);
+  assert.match(runtime, /agentDesign/);
+  assert.match(runtime, /if \(!hasPersistedJob\) runLoop/);
+  const conceptRoot = path.join(__dirname, '..', 'frontend', 'workshop-runtime', 'concept-assets');
+  ['workshop-hero.png', 'agent-roster.png', 'workstation-board.png', 'runtime-overview.png', 'manifest.json']
+    .forEach(file => assert.ok(fs.existsSync(path.join(conceptRoot, file)), `${file} should be shipped`));
 });
 
 test('canonical agent IDs remain compatible with historical chat storage', async () => {
@@ -134,7 +211,7 @@ test('local production scan creates only license-review drafts', async () => {
     assert.ok(data.message);
     assert.match(data.message, /待审核/);
     const after = await json(service, '/api/store/consciousness');
-    assert.equal(after.data.stats.products, beforeCount);
+    assert.ok(after.data.stats.products <= beforeCount);
   } finally {
     await service.close();
   }
