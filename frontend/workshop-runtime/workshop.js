@@ -81,10 +81,21 @@ const agentDesign = {
   inspector: { hair: 0x684536, cap: true, glasses: true, prop: 'magnifier' },
 };
 
-const generatedDesignAssets = [
-  { name: 'GeneratedHeroBoard', path: '/workshop-runtime/concept-assets/workshop-hero.png', position: [3.55, 1.8, -1.24], size: [4.25, 2.39], rotationY: Math.PI },
-  { name: 'GeneratedAgentRoster', path: '/workshop-runtime/concept-assets/agent-roster.png', position: [20.2, 1.8, -1.24], size: [3.6, 2.4], rotationY: Math.PI },
-  { name: 'GeneratedWorkstationBoard', path: '/workshop-runtime/concept-assets/workstation-board.png', position: [0.68, 1.72, -8.7], size: [4.0, 2.25], rotationY: Math.PI / 2 },
+const artDirection = {
+  wall: 0xf3eee6,
+  ceiling: 0xfffaf2,
+  floor: 0x79533c,
+  worktop: 0xe9d8c4,
+  wood: 0x8d6045,
+  dark: 0x253342,
+  screen: 0x245d88,
+  foliage: 0x4f8467,
+  warmLight: 0xffb36f,
+};
+const independentSceneAssets = [
+  'manager-command-props', 'research-library-props', 'recommendation-analysis-props',
+  'reception-welcome-props', 'order-fulfilment-props', 'production-model-props',
+  'inspection-quality-props', 'plants', 'showcase-models', 'window-world',
 ];
 
 RectAreaLightUniformsLib.init();
@@ -335,20 +346,80 @@ function createAgentRig(id, name, home) {
     eye.position.set(x, 0.17, -0.286);
     head.add(eye);
   });
+  [-0.19, 0.19].forEach((x) => {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.052, 8, 6), face);
+    ear.scale.set(0.55, 1, 0.72);
+    ear.position.set(x, 0.17, -0.02);
+    head.add(ear);
+    const cheek = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), new THREE.MeshBasicMaterial({ color: 0xe99a98 }));
+    cheek.scale.set(1.4, 0.48, 0.32);
+    cheek.position.set(x * 0.68, 0.095, -0.294);
+    head.add(cheek);
+  });
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.044, 0.009, 5, 10, Math.PI), ink);
+  mouth.rotation.z = Math.PI;
+  mouth.position.set(0, 0.085, -0.302);
+  head.add(mouth);
   const armGeometry = new THREE.CylinderGeometry(0.085, 0.1, 0.62, 8);
   const leftArmMesh = new THREE.Mesh(armGeometry, uniform);
   leftArmMesh.position.set(-0.08, -0.02, 0);
   leftArm.add(leftArmMesh);
+  const leftHand = new THREE.Mesh(new THREE.SphereGeometry(0.092, 10, 8), face);
+  leftHand.position.set(-0.08, -0.35, 0);
+  leftArm.add(leftHand);
   const rightArmMesh = new THREE.Mesh(armGeometry.clone(), uniform);
   rightArmMesh.position.set(0.08, -0.02, 0);
   rightArm.add(rightArmMesh);
+  const rightHand = new THREE.Mesh(new THREE.SphereGeometry(0.092, 10, 8), face);
+  rightHand.position.set(0.08, -0.35, 0);
+  rightArm.add(rightHand);
   const legGeometry = new THREE.CylinderGeometry(0.1, 0.11, 0.65, 8);
   const leftLegMesh = new THREE.Mesh(legGeometry, dark);
   leftLegMesh.position.y = -0.28;
   leftLeg.add(leftLegMesh);
+  const leftShoe = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.32), ink);
+  leftShoe.position.set(0, -0.61, -0.08);
+  leftLeg.add(leftShoe);
   const rightLegMesh = new THREE.Mesh(legGeometry.clone(), dark);
   rightLegMesh.position.y = -0.28;
   rightLeg.add(rightLegMesh);
+  const rightShoe = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.32), ink);
+  rightShoe.position.set(0, -0.61, -0.08);
+  rightLeg.add(rightShoe);
+
+  const leftCollar = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.18, 3), uniform);
+  leftCollar.rotation.z = Math.PI;
+  leftCollar.position.set(-0.1, 0.57, -0.24);
+  spine.add(leftCollar);
+  const rightCollar = leftCollar.clone();
+  rightCollar.position.x = 0.1;
+  spine.add(rightCollar);
+  const tie = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.23, 4), accent);
+  tie.rotation.z = Math.PI;
+  tie.position.set(0, 0.43, -0.255);
+  spine.add(tie);
+
+  if (id === 'manager') {
+    const jacket = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.62, 0.37), dark);
+    jacket.position.y = 0.31;
+    spine.add(jacket);
+    roleStripe.position.z = -0.202;
+    tie.position.z = -0.205;
+  }
+  if (id === 'recommender') {
+    [-0.29, 0.29].forEach((x) => {
+      const bob = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), hair);
+      bob.scale.set(0.72, 1.35, 0.72);
+      bob.position.set(x, 0.08, 0.02);
+      head.add(bob);
+    });
+  }
+  if (id === 'receptionist') {
+    const ponytail = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 8), hair);
+    ponytail.scale.set(0.78, 1.35, 0.8);
+    ponytail.position.set(0.24, 0.12, 0.15);
+    head.add(ponytail);
+  }
 
   if (design.glasses) {
     [-0.105, 0.105].forEach((x) => {
@@ -456,39 +527,171 @@ function addWorkshopBranding() {
   scene.add(sign);
 }
 
-async function addGeneratedDesignBoards() {
-  const textureLoader = new THREE.TextureLoader();
-  const textures = await Promise.all(generatedDesignAssets.map((asset) => textureLoader.loadAsync(asset.path)));
-  generatedDesignAssets.forEach((asset, index) => {
-    const [width, height] = asset.size;
-    const frame = new THREE.Mesh(
-      new THREE.BoxGeometry(width + 0.18, height + 0.18, 0.08),
-      new THREE.MeshStandardMaterial({ color: 0x6a4b39, roughness: 0.64, metalness: 0.18 }),
-    );
-    frame.name = `${asset.name}Frame`;
-    frame.position.fromArray(asset.position);
-    frame.rotation.y = asset.rotationY;
-    scene.add(frame);
+function standardMaterial(color, options = {}) {
+  return new THREE.MeshStandardMaterial({ color, roughness: 0.68, metalness: 0.04, ...options });
+}
 
-    const texture = textures[index];
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-    const board = new THREE.Mesh(
-      new THREE.PlaneGeometry(width, height),
-      new THREE.MeshStandardMaterial({
-        map: texture,
-        emissive: 0xffffff,
-        emissiveMap: texture,
-        emissiveIntensity: 0.08,
-        roughness: 0.72,
-        side: THREE.DoubleSide,
-      }),
-    );
-    board.name = asset.name;
-    board.position.fromArray(asset.position);
-    board.rotation.y = asset.rotationY;
-    board.translateZ(0.045);
-    scene.add(board);
+function box(name, size, position, material, parent = scene) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
+  mesh.name = name;
+  mesh.position.set(...position);
+  parent.add(mesh);
+  return mesh;
+}
+
+function cylinder(name, radius, height, position, material, parent = scene, segments = 16) {
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, height, segments), material);
+  mesh.name = name;
+  mesh.position.set(...position);
+  parent.add(mesh);
+  return mesh;
+}
+
+function sphere(name, radius, position, material, parent = scene) {
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 14, 10), material);
+  mesh.name = name;
+  mesh.position.set(...position);
+  parent.add(mesh);
+  return mesh;
+}
+
+function applyConceptArtDirection() {
+  room.traverse((object) => {
+    if (!object.isMesh || !object.material) return;
+    const name = object.name.toLowerCase();
+    let color = null;
+    if (name.includes('floor_substrate') || name.includes('exteriorapron')) color = artDirection.floor;
+    else if (name.includes('wall_substrate')) color = artDirection.wall;
+    else if (name.includes('ceiling_substrate')) color = artDirection.ceiling;
+    else if (name.includes('desk_') || name.includes('modeltabletop')) color = artDirection.worktop;
+    else if (name.includes('deskleg') || name.includes('rack') || name.includes('ceilingrail')) color = artDirection.dark;
+    else if (name.includes('screen_') || name.includes('windowbacking')) color = artDirection.screen;
+    else if (name.includes('zone_')) color = 0xd8c8b8;
+    else if (name.includes('rout')) color = 0xb67b52;
+    if (color === null) return;
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    materials.forEach((material) => {
+      if (!material.color) return;
+      material.color.setHex(color);
+      material.roughness = name.includes('screen_') ? 0.3 : 0.7;
+      material.metalness = name.includes('rack') ? 0.22 : 0.03;
+      if (name.includes('screen_') || name.includes('windowbacking')) {
+        material.emissive?.setHex(color);
+        material.emissiveIntensity = 0.2;
+      }
+      material.needsUpdate = true;
+    });
+  });
+}
+
+function addPlant(name, x, z, scale = 1) {
+  const group = new THREE.Group();
+  group.name = name;
+  group.position.set(x, 0, z);
+  const pot = standardMaterial(0xc87d54, { roughness: 0.78 });
+  const stem = standardMaterial(0x4d6547, { roughness: 0.82 });
+  const leaf = standardMaterial(artDirection.foliage, { roughness: 0.76 });
+  const planter = new THREE.Mesh(new THREE.CylinderGeometry(0.28 * scale, 0.2 * scale, 0.42 * scale, 12), pot);
+  planter.position.y = 0.21 * scale;
+  group.add(planter);
+  cylinder(`${name}_Stem`, 0.035 * scale, 0.7 * scale, [0, 0.72 * scale, 0], stem, group, 8);
+  [[-0.18, 0.82, 0], [0.18, 1.0, 0.02], [-0.12, 1.18, 0.05], [0.12, 1.35, 0]].forEach((point, index) => {
+    const crown = sphere(`${name}_Leaf_${index + 1}`, 0.24 * scale, point.map((value) => value * scale), leaf, group);
+    crown.scale.set(1.25, 0.68, 0.7);
+  });
+  scene.add(group);
+}
+
+function addScreen(name, position, width, height, accent) {
+  const frame = box(`${name}_Frame`, [width + 0.08, height + 0.08, 0.06], position, standardMaterial(artDirection.dark, { metalness: 0.24 }));
+  const screen = new THREE.Mesh(
+    new THREE.PlaneGeometry(width, height),
+    new THREE.MeshBasicMaterial({ map: canvasTexture([name.replaceAll('_', ' '), 'LIVE'], { width: 640, height: 320, accent }), side: THREE.DoubleSide }),
+  );
+  screen.name = name;
+  screen.position.copy(frame.position);
+  screen.position.z -= 0.035;
+  screen.rotation.y = Math.PI;
+  scene.add(screen);
+}
+
+function addHouseModel(name, position, scale = 1) {
+  const group = new THREE.Group();
+  group.name = name;
+  group.position.set(...position);
+  group.scale.setScalar(scale);
+  box(`${name}_Body`, [0.55, 0.42, 0.48], [0, 0.21, 0], standardMaterial(0xf4d7b8), group);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.46, 0.34, 4), standardMaterial(0xc85d46, { roughness: 0.76 }));
+  roof.name = `${name}_Roof`;
+  roof.rotation.y = Math.PI / 4;
+  roof.position.y = 0.58;
+  group.add(roof);
+  box(`${name}_Door`, [0.13, 0.22, 0.02], [0, 0.13, -0.251], standardMaterial(0x6c4a36), group);
+  scene.add(group);
+  return group;
+}
+
+function addConceptDerivedSceneAssets() {
+  const wood = standardMaterial(artDirection.wood, { roughness: 0.72 });
+  const paper = standardMaterial(0xf6eadc, { roughness: 0.86 });
+  const blue = standardMaterial(0x3f78a8, { emissive: 0x173a56, emissiveIntensity: 0.3, roughness: 0.34 });
+  const orange = standardMaterial(0xdf7950, { roughness: 0.65 });
+  const green = standardMaterial(artDirection.foliage, { roughness: 0.78 });
+
+  addScreen('MANAGER_COMMAND', [2, 1.56, -1.05], 1.75, 0.72, '#ff9b62');
+  addScreen('RECOMMENDATION_DATA', [11, 1.56, -1.05], 1.75, 0.72, '#7b76de');
+  addScreen('ORDER_FLOW', [7, 1.52, -14.92], 1.45, 0.64, '#e88754');
+  addScreen('QUALITY_PASS', [15, 1.52, -14.92], 1.55, 0.68, '#6f75d8');
+
+  [6.35, 6.65, 6.95, 7.25].forEach((x, index) => {
+    box(`ResearchBook_${index + 1}`, [0.22, 0.2 + index * 0.04, 0.44], [x, 1.02, -2.62], standardMaterial([0x4f8c93, 0xd4975f, 0x6178a0, 0xb85e5f][index]));
+  });
+  cylinder('ResearchGlobe', 0.22, 0.32, [7.72, 1.12, -2.64], blue, scene, 20);
+
+  [-0.55, 0, 0.55].forEach((offset, index) => {
+    const tablet = box(`RecommendationPanel_${index + 1}`, [0.46, 0.05, 0.34], [11 + offset, 1.04, -2.7], blue);
+    tablet.rotation.x = -0.3;
+  });
+
+  box('ReceptionWelcome', [1.55, 0.11, 0.44], [15, 0.96, -2.66], paper);
+  cylinder('ReceptionLamp', 0.08, 0.48, [15.72, 1.16, -2.68], orange, scene, 12);
+  sphere('ReceptionLampShade', 0.18, [15.72, 1.4, -2.68], orange);
+
+  [[6.55, -13.0], [7.05, -12.95], [7.5, -13.08]].forEach((position, index) => {
+    const parcel = box(`OrderParcel_${index + 1}`, [0.38, 0.3, 0.34], [position[0], 1.03 + index * 0.05, position[1]], standardMaterial(0xc38a55));
+    box(`OrderBand_${index + 1}`, [0.08, 0.31, 0.35], [parcel.position.x, parcel.position.y, parcel.position.z], orange);
+  });
+
+  cylinder('ProductionHologramBase', 0.48, 0.1, [11, 1.01, -13.0], standardMaterial(0x29475e, { metalness: 0.35 }), scene, 28);
+  const productionHouse = addHouseModel('ProductionHouse', [11, 1.08, -13.0], 0.72);
+  productionHouse.traverse((object) => {
+    if (object.isMesh) object.material = blue;
+  });
+
+  const inspectionBoard = box('InspectionChecklist', [0.66, 0.05, 0.82], [15.25, 1.14, -13.0], paper);
+  inspectionBoard.rotation.x = -0.34;
+  [-0.2, 0, 0.2].forEach((offset, index) => {
+    box(`InspectionMark_${index + 1}`, [0.28, 0.025, 0.035], [15.25, 1.18 + offset, -13.4], green);
+  });
+
+  addPlant('Plant_NorthWest', 4.5, -1.05, 0.9);
+  addPlant('Plant_NorthEast', 19.4, -1.05, 0.9);
+  addPlant('Plant_EntryWest', 3.1, -14.55, 0.78);
+  addPlant('Plant_EntryEast', 20.5, -14.55, 0.78);
+
+  addHouseModel('ShowcaseHouse_A', [21.75, 0.64, -6.5], 0.52);
+  addHouseModel('ShowcaseHouse_B', [21.75, 1.14, -9.5], 0.42);
+  cylinder('ShowcaseTreeTrunk', 0.06, 0.38, [21.75, 1.28, -7.5], wood, scene, 8);
+  sphere('ShowcaseTreeCrown', 0.24, [21.75, 1.58, -7.5], green);
+
+  const sky = box('WindowWorldBackdrop', [6.95, 1.02, 0.04], [12, 1.52, 0.16], standardMaterial(0x8fc9dc, { emissive: 0x5a8da1, emissiveIntensity: 0.35 }));
+  sky.rotation.y = Math.PI;
+  [[10.2, 1.55], [12.1, 1.36], [14.0, 1.7]].forEach(([x, y], index) => {
+    const island = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.56, 7), standardMaterial(0x69806a));
+    island.name = `WindowFloatingIsland_${index + 1}`;
+    island.rotation.z = Math.PI;
+    island.position.set(x, y, 0.1);
+    scene.add(island);
   });
 }
 
@@ -505,7 +708,8 @@ async function indexAgentParts() {
     setStatus(id, 'IDLE');
   });
   addWorkshopBranding();
-  await addGeneratedDesignBoards();
+  applyConceptArtDirection();
+  addConceptDerivedSceneAssets();
 }
 
 function createAcceptedAsset() {
@@ -555,10 +759,12 @@ async function loadRuntime() {
     canvas.dataset.ready = 'true';
     canvas.dataset.riggedAgents = String(agents.length);
     canvas.dataset.brand = 'Fantasy3D AI Workshop';
-    canvas.dataset.generatedDesignAssets = String(generatedDesignAssets.length);
+    canvas.dataset.conceptImagesInScene = '0';
+    canvas.dataset.independentSceneAssets = String(independentSceneAssets.length);
     window.__FANTASY3D_RUNTIME__ = {
       ready: true, tier, manifest, agentCount: agents.length, riggedAgentCount: agents.length,
-      brand: 'Fantasy3D AI Workshop', generatedDesignAssetCount: generatedDesignAssets.length,
+      brand: 'Fantasy3D AI Workshop', conceptImagesInScene: 0,
+      independentSceneAssetCount: independentSceneAssets.length,
       errors: [], renderer: 'three-webgl',
     };
     window.dispatchEvent(new CustomEvent('fantasy3d-ready', { detail: window.__FANTASY3D_RUNTIME__ }));
