@@ -29,6 +29,7 @@ const cameraPresets = [
 ];
 const state = Object.fromEntries(agents.map(([id, , , home]) => [id, {
   status: 'IDLE', home, current: new THREE.Vector3(), target: new THREE.Vector3(), parts: [],
+  rig: null, bones: null, ring: null,
 }]));
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
@@ -55,6 +56,36 @@ let phase = 0;
 let demoRunning = false;
 let demoLockUntil = 0;
 let latestTask = null;
+let activeJob = null;
+let gatewayWriteToken = '';
+let jobWriteQueue = Promise.resolve();
+let hasPersistedJob = false;
+
+const agentPalette = {
+  manager: 0x244b86,
+  researcher: 0x287d8f,
+  recommender: 0x6454c9,
+  receptionist: 0xd94c72,
+  order: 0xc55b2e,
+  production: 0x187d78,
+  inspector: 0x494486,
+};
+
+const agentDesign = {
+  manager: { hair: 0x684333, prop: 'tablet' },
+  researcher: { hair: 0x303747, glasses: true, prop: 'magnifier' },
+  recommender: { hair: 0x263b72, headphones: true, skirt: true, prop: 'tablet' },
+  receptionist: { hair: 0x754432, headphones: true, skirt: true, prop: 'tablet' },
+  order: { hair: 0x6f4430, cap: true, prop: 'parcel' },
+  production: { hair: 0x293b64, cap: true, prop: 'hologram' },
+  inspector: { hair: 0x684536, cap: true, glasses: true, prop: 'magnifier' },
+};
+
+const generatedDesignAssets = [
+  { name: 'GeneratedHeroBoard', path: '/workshop-runtime/concept-assets/workshop-hero.png', position: [3.55, 1.8, -1.24], size: [4.25, 2.39], rotationY: Math.PI },
+  { name: 'GeneratedAgentRoster', path: '/workshop-runtime/concept-assets/agent-roster.png', position: [20.2, 1.8, -1.24], size: [3.6, 2.4], rotationY: Math.PI },
+  { name: 'GeneratedWorkstationBoard', path: '/workshop-runtime/concept-assets/workstation-board.png', position: [0.68, 1.72, -8.7], size: [4.0, 2.25], rotationY: Math.PI / 2 },
+];
 
 RectAreaLightUniformsLib.init();
 
@@ -86,7 +117,7 @@ function setStatus(id, status, target) {
   const destination = target || item.home;
   item.target.set(destination[0] - item.home[0], 0, -(destination[1] - item.home[1]));
   const color = stateColor(status);
-  const ring = room?.getObjectByName(`StateRing_${id}`);
+  const ring = item.ring || room?.getObjectByName(`StateRing_${id}`);
   if (ring?.material) {
     ring.material.color.setHex(color);
     if ('emissive' in ring.material) ring.material.emissive.setHex(color).multiplyScalar(0.24);
@@ -168,14 +199,313 @@ function addRuntimeLights(fixtures) {
   });
 }
 
-function indexAgentParts() {
-  agents.forEach(([id]) => {
+function canvasTexture(lines, { width = 1024, height = 256, accent = '#d2a94d' } = {}) {
+  const labelCanvas = document.createElement('canvas');
+  labelCanvas.width = width;
+  labelCanvas.height = height;
+  const context = labelCanvas.getContext('2d');
+  context.fillStyle = '#10191f';
+  context.fillRect(0, 0, width, height);
+  context.strokeStyle = accent;
+  context.lineWidth = 12;
+  context.strokeRect(14, 14, width - 28, height - 28);
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillStyle = '#f4f7f8';
+  context.font = `700 ${Math.round(height * 0.31)}px sans-serif`;
+  context.fillText(lines[0], width / 2, height * 0.43);
+  if (lines[1]) {
+    context.fillStyle = accent;
+    context.font = `600 ${Math.round(height * 0.15)}px sans-serif`;
+    context.fillText(lines[1], width / 2, height * 0.73);
+  }
+  const texture = new THREE.CanvasTexture(labelCanvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  return texture;
+}
+
+function rigidSkinnedMesh(geometry, material, boneIndex, skeleton) {
+  const count = geometry.attributes.position.count;
+  const indices = new Uint16Array(count * 4);
+  const weights = new Float32Array(count * 4);
+  for (let index = 0; index < count; index += 1) {
+    indices[index * 4] = boneIndex;
+    weights[index * 4] = 1;
+  }
+  geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(indices, 4));
+  geometry.setAttribute('skinWeight', new THREE.Float32BufferAttribute(weights, 4));
+  const mesh = new THREE.SkinnedMesh(geometry, material);
+  mesh.bind(skeleton);
+  mesh.castShadow = false;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+function createAgentRig(id, name, home) {
+  const group = new THREE.Group();
+  group.name = `Rig_${id}`;
+  group.position.set(home[0], 0, -home[1]);
+
+  const root = new THREE.Bone();
+  root.name = `${id}_root`;
+  const spine = new THREE.Bone();
+  spine.name = `${id}_spine`;
+  spine.position.set(0, 0.72, 0);
+  const head = new THREE.Bone();
+  head.name = `${id}_head`;
+  head.position.set(0, 0.74, 0);
+  const leftArm = new THREE.Bone();
+  leftArm.name = `${id}_arm_l`;
+  leftArm.position.set(-0.34, 0.3, 0);
+  const rightArm = new THREE.Bone();
+  rightArm.name = `${id}_arm_r`;
+  rightArm.position.set(0.34, 0.3, 0);
+  const leftLeg = new THREE.Bone();
+  leftLeg.name = `${id}_leg_l`;
+  leftLeg.position.set(-0.17, 0.62, 0);
+  const rightLeg = new THREE.Bone();
+  rightLeg.name = `${id}_leg_r`;
+  rightLeg.position.set(0.17, 0.62, 0);
+  root.add(spine, leftLeg, rightLeg);
+  spine.add(head, leftArm, rightArm);
+  group.add(root);
+  group.updateMatrixWorld(true);
+  const skeleton = new THREE.Skeleton([root, spine, head, leftArm, rightArm, leftLeg, rightLeg]);
+
+  const roleColor = agentPalette[id];
+  const design = agentDesign[id];
+  const accent = new THREE.MeshStandardMaterial({ color: roleColor, roughness: 0.45, metalness: 0.12 });
+  const uniform = new THREE.MeshStandardMaterial({ color: 0xf3eee7, roughness: 0.72, metalness: 0.02 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x252a35, roughness: 0.74, metalness: 0.06 });
+  const face = new THREE.MeshStandardMaterial({ color: 0xf1c7a9, roughness: 0.76 });
+  const hair = new THREE.MeshStandardMaterial({ color: design.hair, roughness: 0.8, metalness: 0.02 });
+  const ink = new THREE.MeshStandardMaterial({ color: 0x181b24, roughness: 0.5 });
+  const screen = new THREE.MeshStandardMaterial({ color: 0x17354e, emissive: 0x2b9ed6, emissiveIntensity: 0.55, roughness: 0.36 });
+  const parcel = new THREE.MeshStandardMaterial({ color: 0xc89057, roughness: 0.84 });
+  const bodyGeometry = new THREE.BoxGeometry(0.56, 0.72, 0.34).translate(0, 1.05, 0);
+  const headGeometry = new THREE.SphereGeometry(0.31, 16, 12).translate(0, 1.63, 0);
+  const leftArmGeometry = new THREE.CylinderGeometry(0.085, 0.1, 0.62, 8).translate(-0.42, 1.0, 0);
+  const rightArmGeometry = new THREE.CylinderGeometry(0.085, 0.1, 0.62, 8).translate(0.42, 1.0, 0);
+  const leftLegGeometry = new THREE.CylinderGeometry(0.1, 0.11, 0.65, 8).translate(-0.17, 0.34, 0);
+  const rightLegGeometry = new THREE.CylinderGeometry(0.1, 0.11, 0.65, 8).translate(0.17, 0.34, 0);
+  const skinLayer = [
+    rigidSkinnedMesh(bodyGeometry, uniform, 1, skeleton),
+    rigidSkinnedMesh(headGeometry, face, 2, skeleton),
+    rigidSkinnedMesh(leftArmGeometry, uniform, 3, skeleton),
+    rigidSkinnedMesh(rightArmGeometry, uniform, 4, skeleton),
+    rigidSkinnedMesh(leftLegGeometry, dark, 5, skeleton),
+    rigidSkinnedMesh(rightLegGeometry, dark, 6, skeleton),
+  ];
+  skinLayer.forEach((mesh) => {
+    mesh.visible = false;
+    group.add(mesh);
+  });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.72, 0.34), uniform);
+  body.position.y = 0.33;
+  spine.add(body);
+  const vest = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.5, 0.08), dark);
+  vest.position.set(0, 0.32, -0.18);
+  spine.add(vest);
+  const roleStripe = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.38, 0.025), accent);
+  roleStripe.position.set(0, 0.31, -0.232);
+  spine.add(roleStripe);
+  if (design.skirt) {
+    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.45, 0.28, 8), dark);
+    skirt.position.y = -0.05;
+    spine.add(skirt);
+  }
+
+  const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.31, 16, 12), face);
+  headMesh.position.y = 0.17;
+  head.add(headMesh);
+  const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.326, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), hair);
+  hairCap.position.y = 0.21;
+  head.add(hairCap);
+  [-0.14, -0.04, 0.07, 0.16].forEach((x, index) => {
+    const fringe = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 6), hair);
+    fringe.scale.set(1, 0.72 + index * 0.04, 0.64);
+    fringe.position.set(x, 0.31 - Math.abs(x) * 0.42, -0.22);
+    head.add(fringe);
+  });
+  [-0.105, 0.105].forEach((x) => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.036, 8, 6), ink);
+    eye.scale.set(0.78, 1.25, 0.48);
+    eye.position.set(x, 0.17, -0.286);
+    head.add(eye);
+  });
+  const armGeometry = new THREE.CylinderGeometry(0.085, 0.1, 0.62, 8);
+  const leftArmMesh = new THREE.Mesh(armGeometry, uniform);
+  leftArmMesh.position.set(-0.08, -0.02, 0);
+  leftArm.add(leftArmMesh);
+  const rightArmMesh = new THREE.Mesh(armGeometry.clone(), uniform);
+  rightArmMesh.position.set(0.08, -0.02, 0);
+  rightArm.add(rightArmMesh);
+  const legGeometry = new THREE.CylinderGeometry(0.1, 0.11, 0.65, 8);
+  const leftLegMesh = new THREE.Mesh(legGeometry, dark);
+  leftLegMesh.position.y = -0.28;
+  leftLeg.add(leftLegMesh);
+  const rightLegMesh = new THREE.Mesh(legGeometry.clone(), dark);
+  rightLegMesh.position.y = -0.28;
+  rightLeg.add(rightLegMesh);
+
+  if (design.glasses) {
+    [-0.105, 0.105].forEach((x) => {
+      const lens = new THREE.Mesh(new THREE.TorusGeometry(0.078, 0.014, 6, 16), ink);
+      lens.position.set(x, 0.18, -0.307);
+      head.add(lens);
+    });
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.018, 0.018), ink);
+    bridge.position.set(0, 0.18, -0.307);
+    head.add(bridge);
+  }
+
+  if (design.headphones) {
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.318, 0.028, 7, 22, Math.PI), accent);
+    band.position.set(0, 0.2, -0.01);
+    head.add(band);
+    [-0.31, 0.31].forEach((x) => {
+      const cup = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.18, 0.11), accent);
+      cup.position.set(x, 0.16, -0.02);
+      head.add(cup);
+    });
+  }
+
+  if (design.cap) {
+    const capTop = new THREE.Mesh(new THREE.SphereGeometry(0.342, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), dark);
+    capTop.scale.y = 0.64;
+    capTop.position.y = 0.32;
+    head.add(capTop);
+    const brim = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.045, 0.18), accent);
+    brim.position.set(0.08, 0.27, -0.25);
+    head.add(brim);
+  }
+
+  if (design.prop === 'tablet') {
+    const tablet = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.43, 0.045), screen);
+    tablet.rotation.z = -0.08;
+    tablet.position.set(0.1, 0.08, -0.31);
+    spine.add(tablet);
+  }
+  if (design.prop === 'parcel') {
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.32, 0.3), parcel);
+    box.position.set(0, 0.04, -0.39);
+    spine.add(box);
+    const band = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.34, 0.31), accent);
+    band.position.copy(box.position);
+    spine.add(band);
+  }
+  if (design.prop === 'magnifier') {
+    const glass = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.024, 7, 18), accent);
+    glass.position.set(0.2, -0.13, -0.2);
+    rightArm.add(glass);
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.25, 7), dark);
+    handle.rotation.z = -0.65;
+    handle.position.set(0.1, -0.27, -0.2);
+    rightArm.add(handle);
+  }
+  if (design.prop === 'hologram') {
+    const model = new THREE.Mesh(new THREE.IcosahedronGeometry(0.14, 1), screen);
+    model.position.set(0, 0.06, -0.4);
+    model.name = 'ProductionHologram';
+    spine.add(model);
+  }
+
+  const badge = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.24, 0.24),
+    new THREE.MeshBasicMaterial({ map: canvasTexture(['F3'], { width: 256, height: 256, accent: '#ff9b62' }), transparent: true, side: THREE.DoubleSide }),
+  );
+  badge.position.set(0, 0.38, -0.232);
+  spine.add(badge);
+
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.38, 0.46, 28),
+    new THREE.MeshBasicMaterial({ color: stateColor('IDLE'), side: THREE.DoubleSide, transparent: true, opacity: 0.86 }),
+  );
+  ring.name = `RigStateRing_${id}`;
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.018;
+  group.add(ring);
+
+  const label = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: canvasTexture([name], { width: 512, height: 160, accent: `#${roleColor.toString(16).padStart(6, '0')}` }),
+    transparent: true,
+    depthTest: false,
+  }));
+  label.position.set(0, 2.05, 0);
+  label.scale.set(0.95, 0.3, 1);
+  label.renderOrder = 5;
+  group.add(label);
+
+  scene.add(group);
+  return { group, ring, bones: { root, spine, head, leftArm, rightArm, leftLeg, rightLeg } };
+}
+
+function addWorkshopBranding() {
+  const sign = new THREE.Mesh(
+    new THREE.PlaneGeometry(5.2, 1.15),
+    new THREE.MeshBasicMaterial({
+      map: canvasTexture(['FANTASY3D', 'AI WORKSHOP'], { width: 1200, height: 300 }),
+      transparent: false,
+    }),
+  );
+  sign.name = 'Fantasy3DBrandSign';
+  sign.position.set(12, 2.0, -1.23);
+  sign.rotation.y = Math.PI;
+  scene.add(sign);
+}
+
+async function addGeneratedDesignBoards() {
+  const textureLoader = new THREE.TextureLoader();
+  const textures = await Promise.all(generatedDesignAssets.map((asset) => textureLoader.loadAsync(asset.path)));
+  generatedDesignAssets.forEach((asset, index) => {
+    const [width, height] = asset.size;
+    const frame = new THREE.Mesh(
+      new THREE.BoxGeometry(width + 0.18, height + 0.18, 0.08),
+      new THREE.MeshStandardMaterial({ color: 0x6a4b39, roughness: 0.64, metalness: 0.18 }),
+    );
+    frame.name = `${asset.name}Frame`;
+    frame.position.fromArray(asset.position);
+    frame.rotation.y = asset.rotationY;
+    scene.add(frame);
+
+    const texture = textures[index];
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    const board = new THREE.Mesh(
+      new THREE.PlaneGeometry(width, height),
+      new THREE.MeshStandardMaterial({
+        map: texture,
+        emissive: 0xffffff,
+        emissiveMap: texture,
+        emissiveIntensity: 0.08,
+        roughness: 0.72,
+        side: THREE.DoubleSide,
+      }),
+    );
+    board.name = asset.name;
+    board.position.fromArray(asset.position);
+    board.rotation.y = asset.rotationY;
+    board.translateZ(0.045);
+    scene.add(board);
+  });
+}
+
+async function indexAgentParts() {
+  agents.forEach(([id, name, , home]) => {
     const item = state[id];
     item.parts = [`AgentBody_${id}`, `AgentHead_${id}`, `StateRing_${id}`]
       .map((name) => room.getObjectByName(name)).filter(Boolean);
-    item.parts.forEach((part) => { part.userData.basePosition = part.position.clone(); });
+    item.parts.forEach((part) => { part.visible = false; });
+    const rig = createAgentRig(id, name, home);
+    item.rig = rig.group;
+    item.ring = rig.ring;
+    item.bones = rig.bones;
     setStatus(id, 'IDLE');
   });
+  addWorkshopBranding();
+  await addGeneratedDesignBoards();
 }
 
 function createAcceptedAsset() {
@@ -217,14 +547,19 @@ async function loadRuntime() {
       object.frustumCulled = true;
       if (object.material) object.material.needsUpdate = true;
     });
-    indexAgentParts();
+    await indexAgentParts();
     createAcceptedAsset();
     setCameraPreset(6);
     overlay.dataset.state = 'ready';
     overlay.setAttribute('aria-hidden', 'true');
     canvas.dataset.ready = 'true';
+    canvas.dataset.riggedAgents = String(agents.length);
+    canvas.dataset.brand = 'Fantasy3D AI Workshop';
+    canvas.dataset.generatedDesignAssets = String(generatedDesignAssets.length);
     window.__FANTASY3D_RUNTIME__ = {
-      ready: true, tier, manifest, agentCount: agents.length, errors: [], renderer: 'three-webgl',
+      ready: true, tier, manifest, agentCount: agents.length, riggedAgentCount: agents.length,
+      brand: 'Fantasy3D AI Workshop', generatedDesignAssetCount: generatedDesignAssets.length,
+      errors: [], renderer: 'three-webgl',
     };
     window.dispatchEvent(new CustomEvent('fantasy3d-ready', { detail: window.__FANTASY3D_RUNTIME__ }));
     event(`3D Runtime 就绪 · ${tier.includes('vlow') ? 'VLow' : 'High'} · ${manifest.geometryTiers[tier.includes('vlow') ? 'vlow' : 'high'].triangles.toLocaleString()} triangles`);
@@ -243,11 +578,23 @@ async function syncGateway() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
     latestTask = (payload.tasks || [])[0] || null;
-    document.getElementById('gatewayStatus').textContent = `LIVE · ${payload.schema} · ${(payload.agents || []).length} Agent · Three.js Runtime`;
+    const persistedJob = (payload.jobs || [])[0] || null;
+    hasPersistedJob = Boolean(persistedJob);
+    gatewayWriteToken = payload.session?.token || '';
+    const persistent = payload.capabilities?.persistentJobs ? ' · Persisted Jobs' : '';
+    document.getElementById('gatewayStatus').textContent = `LIVE · ${payload.schema} · ${(payload.agents || []).length} Agent · Three.js Runtime${persistent}`;
     document.getElementById('activeTasks').textContent = payload.workflow ? payload.workflow.activeTasks : 0;
     if (!demoRunning && Date.now() >= demoLockUntil) {
       (payload.agents || []).forEach((agent) => setStatus(agent.id, normalizeStatus(agent.status)));
-      if (latestTask) {
+      if (persistedJob) {
+        document.getElementById('taskId').textContent = persistedJob.id;
+        document.getElementById('taskText').textContent = persistedJob.title;
+        document.getElementById('taskState').textContent = persistedJob.status;
+        progress = persistedJob.progress || 0;
+        rack = persistedJob.status === 'PASS' ? 1 : 0;
+        if (acceptedAsset) acceptedAsset.visible = persistedJob.status === 'PASS';
+        syncPanel();
+      } else if (latestTask) {
         document.getElementById('taskId').textContent = latestTask.id || latestTask.taskId || 'STORE-TASK';
         document.getElementById('taskText').textContent = latestTask.title || latestTask.description || '已读取商店任务。';
       }
@@ -257,7 +604,40 @@ async function syncGateway() {
   }
 }
 
-function runLoop() {
+async function createPersistedJob() {
+  if (!gatewayWriteToken) throw new Error('write session unavailable');
+  const response = await fetch('/api/workshop/jobs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Workshop-Token': gatewayWriteToken },
+    body: JSON.stringify({
+      sourceTaskId: latestTask?.id || latestTask?.taskId || null,
+      title: latestTask?.title || 'Workshop 3D 资产生产任务',
+    }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.job) throw new Error(payload.error || `HTTP ${response.status}`);
+  return payload.job;
+}
+
+function queueJobTransition(status, nextProgress) {
+  if (!activeJob || !gatewayWriteToken) return;
+  jobWriteQueue = jobWriteQueue.then(async () => {
+    if (!activeJob) return;
+    const response = await fetch(`/api/workshop/jobs/${encodeURIComponent(activeJob.id)}/transitions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Workshop-Token': gatewayWriteToken },
+      body: JSON.stringify({ status, progress: nextProgress }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.job) throw new Error(payload.error || `HTTP ${response.status}`);
+    activeJob = payload.job;
+  }).catch((error) => {
+    event(`后端工单写入失败，继续本地闭环：${error.message}`);
+    activeJob = null;
+  });
+}
+
+async function runLoop({ persist = false } = {}) {
   clearInterval(loopTimer);
   demoRunning = true;
   progress = 0;
@@ -266,7 +646,21 @@ function runLoop() {
   if (acceptedAsset) acceptedAsset.visible = false;
   agents.forEach(([id]) => setStatus(id, 'IDLE'));
   const decision = document.getElementById('inspectionMode').value;
-  if (latestTask) {
+  activeJob = null;
+  jobWriteQueue = Promise.resolve();
+  if (persist) {
+    try {
+      activeJob = await createPersistedJob();
+      document.getElementById('taskId').textContent = activeJob.id;
+      event('Gateway 已创建后端持久化生产工单。');
+    } catch (error) {
+      event(`持久化不可用，改用本地闭环：${error.message}`);
+    }
+  }
+  if (activeJob) {
+    document.getElementById('taskId').textContent = activeJob.id;
+    document.getElementById('taskText').textContent = activeJob.title;
+  } else if (latestTask) {
     document.getElementById('taskId').textContent = latestTask.id || latestTask.taskId || 'STORE-TASK';
     document.getElementById('taskText').textContent = latestTask.title || 'Production 收到真实任务快照。';
   }
@@ -283,17 +677,20 @@ function runLoop() {
       setStatus('production', 'WORKING', anchors.modelTable);
       setCameraPreset(6);
       event('Production 走到模型台，开始 WORKING。');
+      queueJobTransition('WORKING', 0);
     }
     if (phase > 3 && phase < 12) {
       progress = Math.min(68, progress + 8.5);
       document.getElementById('taskText').textContent = `3D 资产生产中，实时进度 ${Math.round(progress)}%。`;
       syncPanel();
+      queueJobTransition('WORKING', progress);
     }
     if (phase === 12) {
       progress = 100;
       setStatus('production', 'PASS', anchors.modelTable);
       setStatus('inspector', 'NOTICE', [19.2, 8]);
       event('Production 完成，交给 Inspector。');
+      queueJobTransition('INSPECTION', 100);
     }
     if (phase === 14) {
       setStatus('inspector', 'WORKING', anchors.modelTable);
@@ -302,6 +699,7 @@ function runLoop() {
     if (phase === 17) {
       setStatus('inspector', decision, decision === 'PASS' ? anchors.rack : anchors.modelTable);
       document.getElementById('taskState').textContent = decision;
+      queueJobTransition(decision, 100);
       if (decision === 'PASS') {
         rack = 1;
         if (acceptedAsset) acceptedAsset.visible = true;
@@ -336,17 +734,27 @@ function animate() {
   const elapsed = (performance.now() - runtimeStartedAt) / 1000;
   Object.values(state).forEach((item) => {
     item.current.lerp(item.target, 0.055);
-    const bob = item.status === 'WORKING' ? Math.sin(elapsed * 7) * 0.045 : 0;
-    item.parts.forEach((part) => {
-      part.position.copy(part.userData.basePosition).add(item.current);
-      if (!part.name.startsWith('StateRing_')) part.position.y += bob;
-    });
+    if (!item.rig || !item.bones) return;
+    const moving = item.current.distanceTo(item.target) > 0.035;
+    const stride = Math.sin(elapsed * 8);
+    const workBeat = Math.sin(elapsed * 7);
+    const idleBreath = Math.sin(elapsed * 2.2) * 0.018;
+    item.rig.position.set(item.home[0] + item.current.x, idleBreath, -item.home[1] + item.current.z);
+    item.bones.root.rotation.z = moving ? stride * 0.035 : 0;
+    item.bones.spine.rotation.x = item.status === 'WORKING' ? 0.12 + workBeat * 0.04 : 0;
+    item.bones.head.rotation.y = item.status === 'NOTICE' ? Math.sin(elapsed * 4) * 0.22 : Math.sin(elapsed * 1.5) * 0.045;
+    item.bones.leftLeg.rotation.x = moving ? stride * 0.55 : 0;
+    item.bones.rightLeg.rotation.x = moving ? -stride * 0.55 : 0;
+    item.bones.leftArm.rotation.x = moving ? -stride * 0.5 : item.status === 'WORKING' ? -0.72 + workBeat * 0.24 : 0;
+    item.bones.rightArm.rotation.x = moving ? stride * 0.5 : item.status === 'WORKING' ? -0.72 - workBeat * 0.24 : 0;
+    item.bones.rightArm.rotation.z = item.status === 'PASS' ? -0.7 + Math.sin(elapsed * 3) * 0.08 : 0;
+    item.bones.head.rotation.z = item.status === 'RETURN' || item.status === 'ERROR' ? -0.18 : 0;
   });
   if (acceptedAsset?.visible) acceptedAsset.rotation.y += 0.012;
   renderer.render(scene, camera);
 }
 
-document.getElementById('runBtn').addEventListener('click', runLoop);
+document.getElementById('runBtn').addEventListener('click', () => runLoop({ persist: true }));
 const cameraButtons = document.getElementById('cameraButtons');
 cameraPresets.forEach(([name], index) => {
   const button = document.createElement('button');
@@ -360,5 +768,8 @@ cameraPresets.forEach(([name], index) => {
 setupCameraControls();
 syncPanel();
 animate();
-loadRuntime().then(() => syncGateway().finally(runLoop));
+loadRuntime().then(async () => {
+  await syncGateway();
+  if (!hasPersistedJob) runLoop({ persist: false });
+});
 setInterval(syncGateway, 10000);
