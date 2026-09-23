@@ -120,14 +120,16 @@ test('workshop jobs require a session and reject invalid transitions', async () 
   }
 });
 
-test('workshop runtime includes branded skeletal agents and persisted-result restore', () => {
+test('workshop runtime includes branded skeletal agents, independent scene assets and persisted-result restore', () => {
   const runtime = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'workshop-runtime', 'workshop.js'), 'utf8');
   assert.match(runtime, /new THREE\.Bone\(\)/);
   assert.match(runtime, /new THREE\.Skeleton\(/);
   assert.match(runtime, /new THREE\.SkinnedMesh\(/);
   assert.match(runtime, /Fantasy3DBrandSign/);
-  assert.match(runtime, /GeneratedAgentRoster/);
-  assert.match(runtime, /generatedDesignAssetCount/);
+  assert.match(runtime, /addConceptDerivedSceneAssets/);
+  assert.match(runtime, /independentSceneAssetCount/);
+  assert.match(runtime, /conceptImagesInScene: 0/);
+  assert.doesNotMatch(runtime, /GeneratedAgentRoster/);
   assert.match(runtime, /agentDesign/);
   assert.match(runtime, /if \(!hasPersistedJob\) runLoop/);
   const conceptRoot = path.join(__dirname, '..', 'frontend', 'workshop-runtime', 'concept-assets');
