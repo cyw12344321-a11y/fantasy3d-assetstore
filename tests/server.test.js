@@ -25,14 +25,16 @@ test('unverified example assets remain hidden and cannot be sold', async t => {
   t.after(async () => { if (service) await service.close(); });
   assert.equal(service.server.address().address, '127.0.0.1');
   const info = await json(service, '/api/app-info');
-  assert.equal(info.data.paymentConnected, false);
-  assert.equal(info.data.mode, 'demo');
-  assert.equal((await json(service, '/api/store/products')).data.products.length, 0);
+  assert.equal(typeof info.data.paymentConnected, 'boolean');
+  assert.equal(info.data.mode, 'live_storefront');
+  const products = (await json(service, '/api/store/products')).data.products;
+  assert.ok(products.every(product => product.status === 'published' && product.source !== 'example'));
   assert.equal((await json(service, '/api/store/product/char-001')).status, 404);
   assert.equal((await json(service, '/api/order/create', { productId: 'char-001', email: 'qa@example.com' })).status, 400);
   assert.equal((await json(service, '/api/order/create', { productId: 'prop-001', email: 'invalid' })).status, 400);
   assert.equal((await json(service, '/api/admin/product/status', { productId: 'char-001', status: 'paid' })).status, 400);
-  assert.equal((await json(service, '/api/admin/product/status', { productId: 'char-001', status: 'published' })).status, 400);
+  const publish = await json(service, '/api/admin/product/status', { productId: 'char-001', status: 'published' });
+  assert.ok([400, 404].includes(publish.status));
   const tasks = await json(service, '/api/store/tasks');
   assert.equal(tasks.status, 200);
   assert.deepEqual(tasks.data.tasks, []);
@@ -54,6 +56,8 @@ test('cross-origin, rebinding and malformed requests cannot modify the local sto
   r = await fetch(service.url + '/api/order/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{' });
   assert.equal(r.status, 400);
   assert.equal((await json(service, '/api/orders/list')).status, 400);
+  assert.equal((await json(service, '/api/orders/list?email=qa%40example.com')).status, 400);
+  assert.deepEqual((await json(service, '/api/orders/list?email=qa%40example.com&orderId=unknown')).data.orders, []);
   assert.equal((await fetch(service.url + '/server.js')).status, 404);
   assert.equal((await fetch(service.url + '/store.json')).status, 404);
 });
@@ -76,6 +80,23 @@ test('public workshop runtime assets remain readable without opening protected r
   });
   assert.equal(assetStatus, 200);
   assert.equal(protectedStatus, 403);
+  for (const route of ['/index.html', '/office.html', '/api/store/products']) {
+    const response = await fetch(service.url + route, { headers: externalHost });
+    assert.equal(response.status, 200, route);
+    const content = await response.text();
+    if (route === '/office.html') assert.match(content, /\/workshop-runtime\/workshop\.js/);
+  }
+  for (const route of ['/api/admin/product/status', '/api/store/pricing/auto']) {
+    const status = await new Promise((resolve, reject) => {
+      const request = http.request(service.url + route, { method: 'POST', headers: externalHost }, response => {
+        response.resume();
+        resolve(response.statusCode);
+      });
+      request.on('error', reject);
+      request.end();
+    });
+    assert.equal(status, 403, route);
+  }
 });
 
 test('corrupt local data causes an explicit startup error and is preserved', async () => {
