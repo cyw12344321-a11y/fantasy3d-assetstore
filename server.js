@@ -549,11 +549,13 @@ function createStoreApp({ dataDir }) {
     if (req.method === 'OPTIONS') return res.sendStatus(200);
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
     if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
     next();
   });
   app.use(express.json({ limit: '16kb' }));
+  require('./lib/blindbox').installBlindbox(app, dataDir);
+  app.get(['/', '/index.html'], (req, res) => res.sendFile(path.join(__dirname, 'frontend/blindbox.html')));
   app.get('/api/app-info', (req, res) => res.json({ name: 'Fantasy3D', mode: 'live_storefront', persistence: 'server', paymentConnected: Boolean(PAYMENT_CONFIG.paypalMe), paymentConfirmation: 'requires_paypal_webhook' }));
   // 智能分类：根据文件名准确判断分类
   function inferCategory(filename) {

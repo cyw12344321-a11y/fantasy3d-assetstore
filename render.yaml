@@ -12,3 +12,7 @@ services:
         value: 0.0.0.0
       - key: ALLOWED_HOST
         value: fantasy3d-assetstores.onrender.com
+      - key: BLINDBOX_SUPPORT_EMAIL
+        value: 715341216@qq.com
+      - key: BLINDBOX_PUBLIC_ORIGIN
+        value: https://fantasy3d-assetstores.onrender.com

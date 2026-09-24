@@ -13,3 +13,9 @@ test('office entry loads the interactive 3D workshop and keeps its runtime asset
     assert.ok(fs.statSync(path.join(root, 'frontend', 'workshop-runtime', name)).size > 0);
   }
 });
+
+test('customer gift page does not advertise the retained office', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../frontend/blindbox.html'), 'utf8');
+  assert.doesNotMatch(html, /href=["'][^"']*office/);
+  assert.match(html, /id="account-button"/);
+});

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fantasy3D · 惊喜礼物</title>
+  <meta name="description" content="十二位惊喜信使，把你的调皮、祝福和心意送给那个想到的人。">
+  <meta name="referrer" content="no-referrer">
+  <meta property="og:title" content="有人送你一个 Fantasy3D 惊喜盲盒">
+  <meta property="og:description" content="拆开惊喜，也回送一份好心情。">
+  <link rel="stylesheet" href="/blindbox/style.css?v=2">
+  <link rel="stylesheet" href="/blindbox/account.css?v=2">
+  <link rel="stylesheet" href="/blindbox/gifting.css?v=3">
+  <link rel="stylesheet" href="/blindbox/art-card.css?v=1">
+</head>
+<body>
+  <header><a class="brand" href="/">FANTASY<span>3D</span><small>惊喜盲盒</small></a><nav><a href="#collection">我的图鉴 <b id="collected">0/12</b></a><button id="account-button">登录 / 注册</button></nav></header>
+  <main>
+    <section class="experience">
+      <div id="stage"><canvas id="scene" aria-label="可旋转的三维盲盒角色"></canvas><div class="stage-label">SERIES 01 <span>小小惊喜事务所</span></div><button id="sound" class="sound" title="开启声音" aria-label="开启声音" aria-pressed="false">♪</button><div id="countdown" aria-live="assertive"></div><span class="watermark">FANTASY3D / FREE EDITION</span></div>
+      <div class="controls">
+        <p class="eyebrow">给那个你想到的人。</p><h1>惊喜礼物<span>一句没说出口的话，<br>让它替你送到。</span></h1>
+        <div id="gift-envelope" hidden><p id="gift-address"></p><button id="open-gift" class="primary">拆开这份惊喜 ↗</button></div>
+        <form id="draw-form"><label for="recipient">送给谁</label><input id="recipient" maxlength="24" placeholder="朋友的名字" autocomplete="off" required><fieldset><legend class="sr-only">盲盒类型</legend><label class="mode"><input type="radio" name="pool" value="prank" checked><span>整蛊 PRANK</span></label><label class="mode"><input type="radio" name="pool" value="bless"><span>祝福 BLESS</span></label></fieldset><button class="primary" id="draw" type="submit">打开惊喜 <span>↗</span></button></form>
+        <div id="result" hidden><p id="rarity" class="eyebrow"></p><h2 id="character-name"></h2><p id="line"></p><progress id="story-progress" max="15" value="0" aria-label="小剧场播放进度"></progress><div id="gift-reactions" hidden><button data-reaction="smile">被你逗笑了</button><button data-reaction="thanks">心意收到了</button><p id="reaction-status" role="status"></p></div><div class="actions"><button id="replay" title="重播动画" aria-label="重播动画">↻</button><button id="share">预览好了，发给朋友 ↗</button><button id="again">回送一个</button></div><div class="export-row"><label for="video-layout" class="sr-only">视频尺寸</label><select id="video-layout"><option value="portrait">竖屏 1080 × 1920</option><option value="landscape">横屏 1920 × 1080</option></select><button id="record">↓ 高清视频</button><button id="cancel-record" hidden>取消</button></div><progress id="record-progress" max="1" value="0" hidden></progress><p id="record-status" role="status"></p><a id="video-download" hidden>下载视频</a></div>
+        <div class="export-row" id="motion-controls"><label for="motion">动作</label><select id="motion"><option value="Dance">跳舞</option><option value="Wave">挥手</option><option value="Idle">待机</option></select></div>
+        <label class="art-animation-control"><input id="art-animation" type="checkbox" checked> 轻动态</label>
+        <p id="status" role="status">免费体验 · 无需注册</p><details><summary>抽取概率与分享隐私</summary><p>普通 55% · 稀有 28% · 史诗 13% · 传说 4%。每次独立随机，无付费抽取、保底或现金回售。分享链接含收礼名字，任何持有链接的人都可查看；请使用昵称。游客收藏保存在本机；登录后新抽取的角色保存到账号，游客记录不计入云端收藏。</p></details>
+      </div>
+    </section>
+    <section id="collection"><div class="section-heading"><div><p class="eyebrow">THE LITTLE SURPRISE CLUB</p><h2>十二种相遇。</h2></div><span id="collection-note">本机图鉴</span></div><div id="cards"></div></section>
+    <section id="outgoing" hidden><h2>我送出的惊喜</h2><p>链接 30 天有效。回执不代表已读；发送记录仅保存在此浏览器。</p><div id="sent-gifts"></div></section>
+  </main><footer><span>FANTASY3D / 惊喜小剧场</span><span>免费预览版 · 暂未开放付费</span></footer>
+  <dialog id="account-dialog" aria-labelledby="account-title"><button id="account-close" aria-label="关闭账号窗口" title="关闭">×</button><h2 id="account-title">我的账号</h2><form id="account-form"><label for="account-mode">账号操作</label><select id="account-mode"><option value="login">登录</option><option value="register">注册</option><option value="recover">恢复账号</option></select><label for="account-username">用户名</label><input id="account-username" autocomplete="username" pattern="[a-zA-Z0-9_]{3,24}" placeholder="3–24 位字母、数字或下划线" required><label for="account-password">密码</label><input id="account-password" type="password" autocomplete="current-password" minlength="12" maxlength="128" placeholder="至少 12 位" required><div id="recovery-field" hidden><label for="account-recovery">恢复码</label><input id="account-recovery" autocomplete="off"></div><button id="account-submit" class="primary">确认</button></form><div id="account-profile" hidden><p id="account-name"></p><p>登录后的开盒记录保存在此账号。</p><button id="logout">退出登录</button></div><div id="recovery-result" hidden><label for="recovery-code">账号恢复码</label><input id="recovery-code" readonly autocomplete="off"><button id="recovery-copy">复制恢复码</button><p>忘记密码时凭此码重设密码。不要分享给他人。</p></div><p id="account-message" role="status"></p></dialog>
+  <script type="module" src="/blindbox/app.js?v=2"></script>
+</body></html>

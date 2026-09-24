@@ -1,0 +1,67 @@
+{
+  "generator": "Built-in image_gen",
+  "date": "2026-09-25",
+  "assetType": "raster artwork, not 3D mesh",
+  "assets": [
+    {
+      "id": "star",
+      "source": "exec-d170b5e1-cc80-4d88-8495-5cc2e1fb0421.png",
+      "file": "star-couture-v1.png",
+      "prompt": "Create an original premium collectible designer toy character for Fantasy3D's friendly surprise gift game: a charming living five-point star fortune messenger, one single isolated full body front three-quarter view. A plump softly sculpted five-point pale buttery yellow star head, clearly recognizable star silhouette with rounded tips, large dark glossy amber eyes, delicate sculpted eyelids and brows, tiny confident kind smile, subtle peach cheeks. Short small body, a finely constructed muted petrol-teal cropped delivery jacket with folded collar and brass snaps, ivory shirt, coral short trousers, stout ivory rounded boots with petrol-teal soles, small brass star badge. Two small gloved hands separated from torso, no objects held. Head proportion about half full character height, not humanoid face or human hair. Visually match a high-end soft vinyl collectible series with tailored fabric clothing, intricate restrained stitching, tactile matte surfaces and polished glass eyes. Refined shape language and endearing distinctive personality, no cheap plastic glare, no generic emoji. Complete silhouette including all star tips and both feet, 10 percent margin, feet grounded. Plain pale cool gray studio background, soft neutral broad key/fill, gentle contact shadow. Eye-level neutral long-lens perspective. No text, no typography, no watermark, no other objects, no pedestal, no room, no multi-view sheet. Full character art for an interactive 2.5D card, not a 3D mesh."
+    },
+    {
+      "id": "fairy",
+      "source": "exec-db41a8ea-8239-44a9-9ac9-083b449c9e67.png",
+      "file": "fairy-couture-v1.png",
+      "prompt": "Original Fantasy3D premium designer collectible character artwork. One isolated full body front three-quarter view, softly squared oversized head, compact body, exceptionally crafted soft matte vinyl face, expressive glossy glass eyes, restrained stitching on tailored clothing and aged brass details. Charming friendly mischievous personality, sophisticated sculpted curves not cheap primitives, cohesive coral/jade/ivory accents. Complete silhouette and feet with margin, pale cool gray plain studio background, broad soft studio lighting, gentle contact shadow, eye-level long lens. No text, watermark, pedestal, room, extra figures or multi-view panels. Tiny fairy messenger with peach skin, glossy emerald eyes, sculpted rose-pink bob hair, small translucent opal butterfly wings attached at back, short ivory petal dress over modest jade bodice, coral cropped jacket, ankle boots, brass flower clasp. Arms slightly separated, no wand."
+    },
+    {
+      "id": "goblin",
+      "source": "exec-07552028-d2ac-41f5-b9ed-f1e8c9a2e87c.png",
+      "file": "goblin-couture-v1.png",
+      "prompt": "Original Fantasy3D premium designer collectible character artwork. One isolated full body front three-quarter view, softly squared oversized head, compact body, exceptionally crafted soft matte vinyl face, expressive glossy glass eyes, restrained stitching on tailored clothing and aged brass details. Charming friendly mischievous personality, sophisticated sculpted curves not cheap primitives, cohesive coral/jade/ivory accents. Complete silhouette and feet with margin, pale cool gray plain studio background, broad soft studio lighting, gentle contact shadow, eye-level long lens. No text, watermark, pedestal, room, extra figures or multi-view panels. Friendly lime-green goblin tinkerer, two long pointed ears, NO horns and NO wings. Copper goggles resting on sculpted dark teal swept hair, intelligent amused amber eyes, one small lower tooth, coral work vest over ivory shirt, dark teal dungarees with stitched pocket, chunky brown work boots. Empty hands relaxed."
+    },
+    {
+      "id": "skeleton",
+      "source": "exec-acc1e004-784b-49ae-8617-8e1ce9b5bfd4.png",
+      "file": "skeleton-couture-v1.png",
+      "prompt": "Original Fantasy3D premium designer collectible character artwork. One isolated full body front three-quarter view, softly squared oversized head, compact body, exceptionally crafted soft matte vinyl face, expressive glossy glass eyes, restrained stitching on tailored clothing and aged brass details. Charming friendly mischievous personality, sophisticated sculpted curves not cheap primitives, cohesive coral/jade/ivory accents. Complete silhouette and feet with margin, pale cool gray plain studio background, broad soft studio lighting, gentle contact shadow, eye-level long lens. No text, watermark, pedestal, room, extra figures or multi-view panels. Adorable ivory skeleton messenger, sculpted round skull with dark recessed eye sockets containing friendly glossy eyes, tiny triangular nose and charming stitched-looking tooth smile. Teal tailored jacket, visible stylized ivory ribcage shirt detail, coral shorts, ivory bony hands, dark teal boots. No gore or frightening imagery."
+    },
+    {
+      "id": "ghost",
+      "source": "exec-3fd46d52-029e-445c-8aa8-2d4f00056fb0.png",
+      "file": "ghost-couture-v1.png",
+      "prompt": "Original Fantasy3D premium designer collectible character artwork. One isolated full body front three-quarter view, softly squared oversized head, compact body, exceptionally crafted soft matte vinyl face, expressive glossy glass eyes, restrained stitching on tailored clothing and aged brass details. Charming friendly mischievous personality, sophisticated sculpted curves not cheap primitives, cohesive coral/jade/ivory accents. Complete silhouette and feet with margin, pale cool gray plain studio background, broad soft studio lighting, gentle contact shadow, eye-level long lens. No text, watermark, pedestal, room, extra figures or multi-view panels. Adorable pale aqua ghost messenger with a softly sculpted teardrop head, two glossy midnight eyes, tiny kind smiling mouth, small mitten arms, gently scalloped floating lower body just above a contact shadow. Short coral tailored capelet with ivory collar and brass moon clasp; no legs, no human hair. Pearlescent matte translucent edge treatment, not frightening."
+    },
+    {
+      "id": "reaper",
+      "source": "exec-ede51798-dcaf-4363-aad6-3a98ea453c4e.png",
+      "file": "reaper-couture-v1.png",
+      "prompt": "Original Fantasy3D premium designer collectible character artwork. One isolated full body front three-quarter view, softly squared oversized head, compact body, exceptionally crafted soft matte vinyl face, expressive glossy glass eyes, restrained stitching on tailored clothing and aged brass details. Charming friendly mischievous personality, sophisticated sculpted curves not cheap primitives, cohesive coral/jade/ivory accents. Complete silhouette and feet with margin, pale cool gray plain studio background, broad soft studio lighting, gentle contact shadow, eye-level long lens. No text, watermark, pedestal, room, extra figures or multi-view panels. Friendly tiny hooded night messenger, oversized deep charcoal hood framing a smooth round ivory face with glossy emerald eyes and a warm tiny smile, rich petrol-teal lined cloak with coral inner hem, brass crescent clasp, small ivory mitten hands, substantial dark boots. No scythe or weapon. Entire hood, cape and boots visible, reassuring not sinister."
+    },
+    {
+      "id": "doll",
+      "source": "exec-2abb8d28-2e35-4136-bc6d-c400cbb5f07b.png",
+      "file": "doll-couture-v1.png",
+      "prompt": "Original Fantasy3D premium designer collectible character artwork. One isolated full body front three-quarter view, softly squared oversized head, compact body, exceptionally crafted soft matte vinyl face, expressive glossy glass eyes, restrained stitching on tailored clothing and aged brass details. Charming friendly mischievous personality, sophisticated sculpted curves not cheap primitives, cohesive coral/jade/ivory accents. Complete silhouette and feet with margin, pale cool gray plain studio background, broad soft studio lighting, gentle contact shadow, eye-level long lens. No text, watermark, pedestal, room, extra figures or multi-view panels. Friendly mischievous stitched rag-doll messenger, softly squared ivory cloth face with one glossy dark button eye and one amber glass eye, a tiny stitched smile, coral yarn bob hair with jade bow, tailored jade pinafore over ivory shirt, coral patchwork sleeves, chunky ivory boots. Delicate decorative seam stitches, no needles, gore, injuries or horror. Charming collector toy."
+    },
+    {
+      "id": "matchmaker",
+      "source": "exec-a4b0d099-7950-4a86-8105-0e44ad87cb17.png",
+      "file": "matchmaker-couture-v1.png",
+      "prompt": "Original Fantasy3D premium designer collectible character artwork. One isolated full body front three-quarter view, softly squared oversized head, compact body, exceptionally crafted soft matte vinyl face, expressive glossy glass eyes, restrained stitching on tailored clothing and aged brass details. Charming friendly mischievous personality, sophisticated sculpted curves not cheap primitives, cohesive coral/jade/ivory accents. Complete silhouette and feet with margin, pale cool gray plain studio background, broad soft studio lighting, gentle contact shadow, eye-level long lens. No text, watermark, pedestal, room, extra figures or multi-view panels. Chinese Yue Lao matchmaker as an endearing wise elderly male miniature, snowy swept hair and short flowing white beard, smiling crescent eyes behind tiny round brass glasses, rich coral traditional cross-collar robe with jade trim and subtle cloud embroidery, ivory inner robe, dark jade traditional boots. A loop of red matchmaking thread held visibly between small hands. Respectful original cultural interpretation, kindly grandfather rather than baby, no lettering."
+    },
+    {
+      "id": "fortune",
+      "source": "exec-19e60757-1e23-45ca-9a9f-7629abe95979.png",
+      "file": "fortune-couture-v1.png",
+      "prompt": "Original Fantasy3D premium designer collectible character artwork. One isolated full body front three-quarter view, softly squared oversized head, compact body, exceptionally crafted soft matte vinyl face, expressive glossy glass eyes, restrained stitching on tailored clothing and aged brass details. Charming friendly mischievous personality, sophisticated sculpted curves not cheap primitives, cohesive coral/jade/ivory accents. Complete silhouette and feet with margin, pale cool gray plain studio background, broad soft studio lighting, gentle contact shadow, eye-level long lens. No text, watermark, pedestal, room, extra figures or multi-view panels. Chinese Caishen fortune deity as an original charming cheerful elderly male collectible, short sculpted black moustache and beard, friendly warm brown eyes, coral traditional ceremonial robe with elaborate but restrained gold embroidered edges and jade belt, rounded traditional red-gold official hat with small side wings, dark jade shoes. Holding ONE small gold sycee ingot with both hands at waist. No coins floating, no text or Chinese glyphs. Dignified festive kindly expression."
+    },
+    {
+      "id": "unicorn",
+      "source": "exec-84e28609-e7bb-4c32-aa79-382a6d6347be.png",
+      "file": "unicorn-couture-v1.png",
+      "prompt": "Original Fantasy3D premium designer collectible character artwork. One isolated full body front three-quarter view, softly squared oversized head, compact body, exceptionally crafted soft matte vinyl face, expressive glossy glass eyes, restrained stitching on tailored clothing and aged brass details. Charming friendly mischievous personality, sophisticated sculpted curves not cheap primitives, cohesive coral/jade/ivory accents. Complete silhouette and feet with margin, pale cool gray plain studio background, broad soft studio lighting, gentle contact shadow, eye-level long lens. No text, watermark, pedestal, room, extra figures or multi-view panels. An original tiny ivory unicorn pony with FOUR legs and four pearl hooves, compact rounded body, oversized sculpted head, single short twisted gold horn, glossy teal eyes, flowing sculpted pastel rose and mint mane and curled tail. Small jade tailored saddle cape with coral lining, delicate stitched edges and brass star clasp, no rider. Silky matte ivory vinyl body and subtle pearlescent mane, sweet but sophisticated, complete horn and tail in frame, neutral standing three-quarter pose."
+    }
+  ]
+}
