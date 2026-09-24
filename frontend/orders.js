@@ -3,6 +3,7 @@
   const { request, node, message, money, validateEmail, rememberEmail, recalledEmail } = window.FantasyStore;
   const form = document.getElementById("ordersForm");
   const email = document.getElementById("queryEmail");
+  const orderId = document.getElementById("queryOrderId");
   const submit = document.getElementById("loadOrders");
   const list = document.getElementById("orderList");
   const feedback = document.getElementById("ordersMessage");
@@ -36,13 +37,14 @@
   async function loadOrders() {
     if (loading) return;
     if (!validateEmail(email)) { message(feedback, "Enter a valid email address. 请输入有效邮箱地址。", "error"); return; }
+    if (!orderId.value.trim()) { message(feedback, "请输入付款记录中的订单号。", "error"); orderId.focus(); return; }
     loading = true;
     submit.disabled = true;
     email.readOnly = true;
     list.replaceChildren();
     message(feedback, "Loading orders… 正在查询订单…");
     try {
-      const data = await request(`/orders/list?email=${encodeURIComponent(email.value)}`);
+      const data = await request(`/orders/list?email=${encodeURIComponent(email.value)}&orderId=${encodeURIComponent(orderId.value.trim())}`);
       if (!Array.isArray(data.orders)) throw new Error("Invalid order list. 订单列表数据异常。");
       rememberEmail(email.value);
       message(feedback, data.orders.length ? `${data.orders.length} order(s) found. 已找到 ${data.orders.length} 笔订单。` : "No orders found for this email. 此邮箱暂无订单。");
@@ -67,5 +69,4 @@
     finally { loading = false; submit.disabled = false; email.readOnly = false; }
   }
   form.addEventListener("submit", event => { event.preventDefault(); loadOrders(); });
-  if (email.value) loadOrders();
 })();

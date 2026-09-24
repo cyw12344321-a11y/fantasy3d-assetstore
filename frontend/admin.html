@@ -35,6 +35,11 @@
   </aside>
   <main class="admin-wrap">
     <h1 class="admin-title">商品管理</h1>
+    <form id="operatorForm">
+      <label for="operatorToken">管理员令牌</label>
+      <input class="email-input" id="operatorToken" type="password" autocomplete="off" maxlength="512">
+      <button type="submit" class="filter-btn">验证</button>
+    </form>
     <p class="page-intro">管理全部商品的上架与下架，智能体团队会自动查重、质检并维护分类与定价。</p>
     <button type="button" id="reloadProducts" class="filter-btn">重新加载</button>
     <p id="adminMessage" class="feedback" role="status">正在加载商品目录…</p>

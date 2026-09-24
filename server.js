@@ -12,6 +12,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
 const { randomUUID } = require('node:crypto');
+const { isPrivilegedRequest, isAuthorizedOperator, validCaptureAmount } = require('./lib/security');
 
 // 跨平台取文件名：商品 filePath 多为 Windows 路径（D:\3DModels\x.blend，反斜杠），
 // 在 Linux（Render）上 path.basename 不认反斜杠，会把整段路径当文件名导致匹配失败。
@@ -521,8 +522,7 @@ function createStoreApp({ dataDir }) {
     const host = (req.headers.host || '').toLowerCase();
     const allowedHost = (process.env.ALLOWED_HOST || '').toLowerCase();
     const isLocalHost = /^127\.0\.0\.1(?::\d+)?$/.test(host) || /^localhost(?::\d+)?$/.test(host);
-    // Existing Render services can omit the blueprint environment variable.  Only
-    // the read-only office view and its display data are public in that case.
+    // Public storefront access and operator authorization are separate checks.
     const publicOfficeReads = new Set([
       '/office.html', '/office-bg.png', '/api/app-info', '/api/agents',
       '/api/store/tasks', '/api/store/meetings', '/api/store/workflow',
@@ -540,6 +540,9 @@ function createStoreApp({ dataDir }) {
     }
     const origin = req.headers.origin;
     if (origin && origin !== 'http://' + req.headers.host && origin !== 'https://' + req.headers.host) return res.status(403).json({ error: 'Cross-origin requests are not allowed.' });
+    if (isPrivilegedRequest(req) && !isAuthorizedOperator(req)) {
+      return res.status(403).json({ error: 'Operator authorization required.' });
+    }
     res.setHeader('Access-Control-Allow-Origin', origin || 'null');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -678,8 +681,7 @@ function createStoreApp({ dataDir }) {
       const cap = pu && pu.payments && pu.payments.captures && pu.payments.captures[0];
       const completed = cj.status === 'COMPLETED' && cap && cap.status === 'COMPLETED';
       if (!completed) return res.status(402).json({ error: 'payment not completed', paypalStatus: cj.status });
-      const paidAmount = cap.amount ? Number(cap.amount.value) : NaN;
-      if (!Number.isNaN(paidAmount) && paidAmount + 0.01 < Number(exist.price)) return res.status(402).json({ error: 'paid amount less than price' });
+      if (!validCaptureAmount(cap, exist.price, PAYMENT_CONFIG.currency)) return res.status(402).json({ error: 'Payment amount or currency does not match the order.' });
       const product = state.products.find(p => p.productId === exist.productId);
       const updated = Object.assign({}, exist, { status: 'fulfilled', paidAt: new Date().toISOString(), paypalCaptureId: cap.id, downloadUrl: buildAssetDownloadUrl(product), deliveryStatus: 'delivered' });
       commit(Object.assign({}, state, { orders: state.orders.map(o => o.orderId === exist.orderId ? updated : o) }));
@@ -692,7 +694,9 @@ function createStoreApp({ dataDir }) {
   });
   app.get('/api/orders/list', (req, res) => {
     if (!validEmail(req.query.email)) return res.status(400).json({ error: 'Enter a valid email address.' });
-    res.json({ orders: state.orders.filter(o => o.email === req.query.email.trim().toLowerCase()).slice().reverse() });
+    const orderId = req.query.orderId;
+    if (typeof orderId !== 'string' || !orderId.trim() || orderId.length > 128) return res.status(400).json({ error: 'Enter the order ID from your purchase confirmation.' });
+    res.json({ orders: state.orders.filter(o => o.orderId === orderId.trim() && o.email === req.query.email.trim().toLowerCase()) });
   });
   app.get('/api/download/:orderId', (req, res) => {
     const order = state.orders.find(o => o.orderId === req.params.orderId);

@@ -35,13 +35,15 @@
   </aside>
   <main class="order-wrap">
     <h1>我的订单</h1>
-    <p class="page-intro">使用下单时填写的邮箱查询购买记录与下载链接。</p>
+    <p class="page-intro">使用下单邮箱和付款记录中的订单号查询订单。</p>
     <form id="ordersForm" novalidate>
       <label for="queryEmail">下单邮箱</label>
       <input class="email-input" id="queryEmail" type="email" required maxlength="254" autocomplete="email" placeholder="请输入下单邮箱">
+      <label for="queryOrderId">订单号</label>
+      <input class="email-input" id="queryOrderId" type="text" required maxlength="128" autocomplete="off" placeholder="请输入付款记录中的订单号">
       <button id="loadOrders" type="submit" class="filter-btn">查询订单</button>
     </form>
-    <p id="ordersMessage" class="feedback" role="status">请输入下单邮箱开始查询。</p>
+    <p id="ordersMessage" class="feedback" role="status">请输入下单邮箱和订单号。</p>
     <p id="downloadStatus" class="feedback" role="status" hidden></p>
     <div id="orderList"></div>
   </main>

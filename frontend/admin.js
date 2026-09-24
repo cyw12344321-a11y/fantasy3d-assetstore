@@ -1,6 +1,12 @@
 (() => {
   "use strict";
-  const { request, node, message, money } = window.FantasyStore;
+  const { request: apiRequest, node, message, money } = window.FantasyStore;
+  const operatorToken = document.getElementById("operatorToken");
+  function request(path, options = {}) {
+    const headers = { ...options.headers };
+    if (operatorToken.value) headers.Authorization = `Bearer ${operatorToken.value}`;
+    return apiRequest(path, { ...options, headers });
+  }
   const tbody = document.getElementById("adminTableBody");
   const feedback = document.getElementById("adminMessage");
   const reload = document.getElementById("reloadProducts");
@@ -60,5 +66,6 @@
     finally { setBusy(false); }
   }
   reload.addEventListener("click", load);
+  document.getElementById("operatorForm").addEventListener("submit", event => { event.preventDefault(); load(); });
   load();
 })();
