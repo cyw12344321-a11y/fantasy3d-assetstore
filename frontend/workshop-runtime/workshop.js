@@ -1,6 +1,8 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
 import { RectAreaLightUniformsLib } from './vendor/lights/RectAreaLightUniformsLib.js';
+import './vendor/pathfinding.min.js';
+import { createNavigation } from './navigation.mjs';
 
 const canvas = document.getElementById('workshop');
 const overlay = document.getElementById('runtimeOverlay');
@@ -15,7 +17,7 @@ const agents = [
   ['inspector', '稽查员', 'inspector', [15, 12.83]],
 ];
 const anchors = {
-  entrance: [12, 15.3], conference: [12, 8], modelTable: [18.2, 8], rack: [22.1, 8],
+  entrance: [12, 15.3], conference: [12, 8], modelTable: [16.2, 8], rack: [20.65, 8],
   productionCamera: [18, 13.2], dataWall: [12, 1.1],
 };
 const cameraPresets = [
@@ -45,6 +47,8 @@ const camera = new THREE.PerspectiveCamera(55, 1, 0.05, 100);
 const runtimeStartedAt = performance.now();
 const orbit = { target: new THREE.Vector3(12, 0.8, -8), yaw: 0, pitch: 1, distance: 12 };
 let room = null;
+let navigation = null;
+let lastFrame = performance.now();
 let ceiling = null;
 let acceptedAsset = null;
 let currentPreset = 6;
@@ -124,9 +128,14 @@ function stateColor(status) {
 
 function setStatus(id, status, target) {
   const item = state[id];
+  if (!item) return;
   item.status = status;
   const destination = target || item.home;
   item.target.set(destination[0] - item.home[0], 0, -(destination[1] - item.home[1]));
+  if (navigation) {
+    const from = [item.home[0] + item.current.x, -item.home[1] + item.current.z];
+    item.route = navigation.route(from, [destination[0], -destination[1]]);
+  }
   const color = stateColor(status);
   const ring = item.ring || room?.getObjectByName(`StateRing_${id}`);
   if (ring?.material) {
@@ -752,6 +761,36 @@ async function loadRuntime() {
       if (object.material) object.material.needsUpdate = true;
     });
     await indexAgentParts();
+    const batch = [
+      ['research-bookshelf', [3.8, 0, -5.4], true],
+      ['lounge-sofa', [3.7, 0, -10.1], true],
+      ['analysis-console', [2, 0.78, -2.1], false],
+      ['inspection-lamp', [18.6, 0.93, -8.8], false],
+    ];
+    await Promise.all(batch.map(async ([name, position, collision]) => {
+      const asset = await new GLTFLoader().loadAsync(`/workshop-runtime/props-batch-01/${name}.glb`);
+      asset.scene.name = `Batch01_${name}`;
+      asset.scene.position.set(...position);
+      asset.scene.userData.floorObstacle = collision;
+      scene.add(asset.scene);
+    }));
+    // Derive floor obstacles from the loaded geometry, not decorative route markers.
+    scene.updateMatrixWorld(true);
+    const obstacles = [];
+    scene.traverse(object => {
+      if (!object.userData.floorObstacle && (!object.isMesh || !/^(Desk_|ConferenceTable|MeetingStool_|ModelTableTop|RackShelf|Wall_|Planter)/.test(object.name))) return;
+      const bounds = new THREE.Box3().setFromObject(object);
+      if (bounds.max.y < 0.15 || bounds.min.y > 1.8) return;
+      obstacles.push({ minX: bounds.min.x, maxX: bounds.max.x, minZ: bounds.min.z, maxZ: bounds.max.z });
+    });
+    navigation = createNavigation(obstacles, globalThis.PF);
+    for (const [id, item] of Object.entries(state)) {
+      const home = [item.home[0], -item.home[1]];
+      const spawn = navigation.free(home) ? home : navigation.nearest(home);
+      if (!spawn) throw new Error('No walkable spawn for ' + id);
+      item.current.set(spawn[0] - item.home[0], 0, spawn[1] + item.home[1]);
+      setStatus(id, item.status);
+    }
     createAcceptedAsset();
     setCameraPreset(6);
     overlay.dataset.state = 'ready';
@@ -766,6 +805,8 @@ async function loadRuntime() {
       brand: 'Fantasy3D AI Workshop', conceptImagesInScene: 0,
       independentSceneAssetCount: independentSceneAssets.length,
       errors: [], renderer: 'three-webgl',
+      collision: { obstacleCount: navigation.obstacleCount, radius: navigation.radius, pathfinding: 'astar' },
+      modelBatch: '01', modelBatchCount: batch.length,
     };
     window.dispatchEvent(new CustomEvent('fantasy3d-ready', { detail: window.__FANTASY3D_RUNTIME__ }));
     event(`3D Runtime 就绪 · ${tier.includes('vlow') ? 'VLow' : 'High'} · ${manifest.geometryTiers[tier.includes('vlow') ? 'vlow' : 'high'].triangles.toLocaleString()} triangles`);
@@ -872,6 +913,7 @@ async function runLoop({ persist = false } = {}) {
   }
   event(`Gateway 接收${latestTask ? '真实任务快照' : '模拟任务'}，Production 流程启动。`);
   loopTimer = setInterval(() => {
+    if ((phase === 3 && state.production.route?.length) || (phase === 14 && state.inspector.route?.length)) return;
     phase += 1;
     if (phase === 1) {
       document.getElementById('taskState').textContent = 'NOTICE';
@@ -894,16 +936,16 @@ async function runLoop({ persist = false } = {}) {
     if (phase === 12) {
       progress = 100;
       setStatus('production', 'PASS', anchors.modelTable);
-      setStatus('inspector', 'NOTICE', [19.2, 8]);
+      setStatus('inspector', 'NOTICE', [20.2, 8]);
       event('Production 完成，交给 Inspector。');
       queueJobTransition('INSPECTION', 100);
     }
     if (phase === 14) {
-      setStatus('inspector', 'WORKING', anchors.modelTable);
+      setStatus('inspector', 'WORKING', [20.2, 8]);
       event('Inspector 检查碰撞、动线和展示架入口。');
     }
     if (phase === 17) {
-      setStatus('inspector', decision, decision === 'PASS' ? anchors.rack : anchors.modelTable);
+      setStatus('inspector', decision, decision === 'PASS' ? anchors.rack : [20.2, 8]);
       document.getElementById('taskState').textContent = decision;
       queueJobTransition(decision, 100);
       if (decision === 'PASS') {
@@ -938,14 +980,23 @@ function animate() {
   requestAnimationFrame(animate);
   resize();
   const elapsed = (performance.now() - runtimeStartedAt) / 1000;
+  const now = performance.now();
+  const delta = Math.min((now - lastFrame) / 1000, 0.05);
+  lastFrame = now;
   Object.values(state).forEach((item) => {
-    item.current.lerp(item.target, 0.055);
+    const before = [item.home[0] + item.current.x, -item.home[1] + item.current.z];
+    if (navigation && item.route?.length) {
+      const next = navigation.advance(before, item.route, delta * 1.8);
+      item.current.set(next[0] - item.home[0], 0, next[1] + item.home[1]);
+    }
     if (!item.rig || !item.bones) return;
-    const moving = item.current.distanceTo(item.target) > 0.035;
+    const moving = Boolean(item.route?.length);
     const stride = Math.sin(elapsed * 8);
     const workBeat = Math.sin(elapsed * 7);
     const idleBreath = Math.sin(elapsed * 2.2) * 0.018;
     item.rig.position.set(item.home[0] + item.current.x, idleBreath, -item.home[1] + item.current.z);
+    const dx = item.rig.position.x - before[0], dz = item.rig.position.z - before[1];
+    if (Math.hypot(dx, dz) > 0.001) item.rig.rotation.y = Math.atan2(-dx, -dz);
     item.bones.root.rotation.z = moving ? stride * 0.035 : 0;
     item.bones.spine.rotation.x = item.status === 'WORKING' ? 0.12 + workBeat * 0.04 : 0;
     item.bones.head.rotation.y = item.status === 'NOTICE' ? Math.sin(elapsed * 4) * 0.22 : Math.sin(elapsed * 1.5) * 0.045;

@@ -1,0 +1,11 @@
+{
+  "source": "Blender procedural modeling from approved workstation reference board",
+  "reference": "reference-workstation-board.png",
+  "aiImageTo3D": false,
+  "assets": [
+    "research-bookshelf.glb",
+    "lounge-sofa.glb",
+    "analysis-console.glb",
+    "inspection-lamp.glb"
+  ]
+}
