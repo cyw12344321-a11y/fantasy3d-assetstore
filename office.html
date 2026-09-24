@@ -1,127 +1,350 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Fantasy3D AI Workshop</title>
-  <style>
-    :root { color-scheme: dark; --bg:#151719; --panel:#211f1d; --line:#4b433c; --muted:#b5aaa0; --text:#fffaf3; --gold:#ff9b62; --green:#62c69b; --blue:#65aee0; --red:#ee7478; --amber:#f6bd68; }
-    * { box-sizing: border-box; }
-    body { margin:0; min-height:100vh; background:var(--bg); color:var(--text); font-family:Inter,"Segoe UI",system-ui,sans-serif; letter-spacing:0; }
-    header { min-height:56px; display:flex; align-items:center; justify-content:space-between; gap:18px; padding:8px 18px; border-bottom:1px solid var(--line); background:#1f1d1b; }
-    .brand { display:flex; align-items:center; gap:10px; min-width:230px; }
-    .mark { width:38px; height:32px; border-radius:6px; border:1px solid #6d5c4d; color:#fff; display:grid; place-items:center; font-weight:900; background:#2c2926; }
-    .mark span { color:var(--gold); font-size:inherit; }
-    .brand strong { display:block; font-size:15px; }
-    .brand span { display:block; color:var(--muted); font-size:11px; }
-    .brand strong span { display:inline; color:var(--gold); font-size:inherit; }
-    .brand .mark span { display:inline; color:var(--gold); font-size:inherit; }
-    nav { display:flex; gap:16px; align-items:center; font-size:13px; }
-    nav a { color:#b8c4cd; text-decoration:none; white-space:nowrap; }
-    nav a.active { color:var(--gold); }
-    main { display:grid; grid-template-columns:minmax(0,1fr) 340px; height:calc(100vh - 57px); min-height:680px; }
-    .stage { position:relative; overflow:hidden; background:#111416; }
-    canvas { width:100%; height:100%; display:block; touch-action:none; cursor:grab; }
-    canvas:active { cursor:grabbing; }
-    .toolbar { position:absolute; z-index:8; inset:14px 14px auto 14px; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; pointer-events:none; }
-    .chips { display:flex; flex-wrap:wrap; gap:8px; pointer-events:auto; }
-    .chip,.view-label { border:1px solid rgba(255,255,255,.16); background:rgba(29,27,25,.86); color:#f2ebe3; border-radius:6px; padding:7px 10px; font-size:12px; backdrop-filter:blur(10px); }
-    .view-label { position:absolute; left:14px; bottom:14px; z-index:6; }
-    .camera-buttons { display:flex; gap:6px; pointer-events:auto; max-width:62%; overflow-x:auto; padding-bottom:3px; }
-    button,select { appearance:none; border:1px solid #5c5148; background:#2a2724; color:#f5eee7; border-radius:6px; padding:8px 10px; font:inherit; font-size:12px; }
-    button { cursor:pointer; white-space:nowrap; }
-    button:hover,button.active { border-color:var(--gold); color:#fff; }
-    .runtime-overlay { position:absolute; z-index:7; inset:0; display:grid; place-content:center; gap:6px; text-align:center; background:#111416; color:var(--muted); transition:opacity .35s ease; }
-    .runtime-overlay b { color:var(--text); font-size:15px; }
-    .runtime-overlay[data-state="ready"] { opacity:0; pointer-events:none; }
-    .runtime-overlay[data-state="error"] b { color:var(--red); }
-    aside { border-left:1px solid var(--line); background:#191816; overflow:auto; padding:14px; }
-    .panel { border:1px solid var(--line); background:var(--panel); border-radius:8px; padding:13px; margin-bottom:12px; }
-    h2,h3 { margin:0 0 10px; }
-    h2 { font-size:18px; color:var(--gold); }
-    h3 { font-size:13px; color:#d9e5ec; }
-    .metric-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
-    .metric { min-height:58px; border:1px solid #433c36; border-radius:6px; padding:9px; background:#181715; }
-    .metric b { display:block; font-size:20px; color:var(--green); overflow-wrap:anywhere; }
-    .metric span { color:var(--muted); font-size:11px; }
-    .agents { display:grid; gap:7px; }
-    .agent-row { display:grid; grid-template-columns:92px 82px minmax(0,1fr); gap:7px; align-items:center; border:1px solid #433c36; border-radius:6px; padding:7px; background:#181715; font-size:12px; }
-    .state { text-align:center; border-radius:4px; padding:3px 5px; background:#1b2630; color:#cad7df; white-space:nowrap; }
-    .state.WORKING { background:rgba(90,167,255,.18); color:#9dcbff; }
-    .state.NOTICE { background:rgba(241,180,76,.18); color:#ffd38b; }
-    .state.PASS { background:rgba(101,209,132,.18); color:#9ff0b6; }
-    .state.RETURN,.state.ERROR { background:rgba(255,107,107,.18); color:#ffaaaa; }
-    .bar { height:7px; background:#26333e; border-radius:99px; overflow:hidden; }
-    .fill { height:100%; width:0; background:var(--blue); transition:width .4s ease; }
-    .log { max-height:150px; overflow:auto; color:#b8c4cd; font-size:12px; line-height:1.55; }
-    .task-card { display:grid; gap:8px; color:#d6e1e8; font-size:12px; }
-    .badge { display:inline-flex; align-items:center; width:fit-content; border:1px solid #334654; border-radius:999px; padding:3px 8px; color:#bcd0dc; font-size:11px; }
-    @media (max-width:980px) {
-      main { grid-template-columns:1fr; height:auto; min-height:0; }
-      .stage { height:68vh; min-height:520px; }
-      aside { border-left:0; border-top:1px solid var(--line); }
-      header { flex-wrap:wrap; padding:10px 14px; }
-      nav { width:100%; overflow-x:auto; }
-      .toolbar { flex-direction:column; }
-      .chips { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); width:100%; }
-      .chip { text-align:center; }
-      .camera-buttons { width:100%; max-width:100%; }
-    }
-    @media (max-width:520px) {
-      .stage { min-height:480px; }
-      .chips { grid-template-columns:1fr; width:fit-content; }
-      .chip { text-align:left; }
-      .agent-row { grid-template-columns:82px 76px minmax(0,1fr); }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能体办公区 | Fantasy3D 自治商店</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui;}
+body{background:#0a0f14;color:#e9edf2;min-height:100vh;}
+.header{background:#111a22;border-bottom:1px solid #222f3b;padding:12px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+.brand{display:flex;gap:10px;align-items:center;text-decoration:none;}
+.logo{width:32px;height:32px;border:1px solid #c9a96e;color:#c9a96e;display:grid;place-items:center;border-radius:4px;font-weight:bold;}
+.brand-title{color:#fff;font-size:16px;font-weight:bold;}
+.brand-sub{color:#8a98a5;font-size:11px;}
+.nav a{color:#b0bcc7;text-decoration:none;margin-left:16px;font-size:14px;}
+.nav a.active{color:#c9a96e;}
+.clock{color:#71d085;font-family:monospace;font-size:14px;}
+.office-wrap{max-width:1400px;margin:0 auto;padding:16px 20px;}
+.office-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;}
+.office-title h2{color:#c9a96e;font-size:20px;}
+.office-title .status{color:#71d085;font-size:13px;}
+button{background:#1d2c3d;color:#dfe8f2;border:1px solid #3a4a5d;border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer;margin-left:6px;}
+button:hover{background:#26394e;}
+
+/* 场景 */
+.scene{
+  position:relative;width:100%;aspect-ratio:2/1;
+  background-image:url('office-bg.png');background-size:100% 100%;
+  border-radius:14px;border:2px solid #3a4a5d;overflow:hidden;
+}
+
+/* 角色立绘：--w = 宽度占场景宽的百分比（无单位） */
+.agent{
+  position:absolute;z-index:5;
+  width:calc(var(--w) * 1%);
+  transition:left 2.2s linear, top 2.2s linear;
+  filter:drop-shadow(1px 2px 3px rgba(0,0,0,0.35));
+}
+.agent .portrait{width:100%;display:block;}
+/* 坐姿：只露上半身（腰以下被工位/会议桌遮挡），容器裁剪 */
+.agent.sit{height:calc(var(--w) * 1.86 * 1%);overflow:hidden;}
+/* 站立/走路：全身 */
+.agent.stand,.agent.walk{height:calc(var(--w) * 3 * 1%);}
+
+.agent .name{
+  position:absolute;top:-17px;left:50%;transform:translateX(-50%);
+  font-size:10px;font-weight:bold;white-space:nowrap;padding:1px 6px;border-radius:4px;
+  background:rgba(0,0,0,0.75);color:#fff;border:1px solid #c9a96e;z-index:6;
+}
+.agent .bubble{
+  position:absolute;top:-52px;left:50%;transform:translateX(-50%);
+  background:#fff;color:#333;font-size:10px;padding:4px 8px;border-radius:8px;
+  max-width:130px;text-align:center;line-height:1.35;box-shadow:0 2px 8px rgba(0,0,0,.3);
+  word-break:break-all;z-index:20;display:none;
+}
+.agent .bubble::after{content:'';position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);
+  border-left:5px solid transparent;border-right:5px solid transparent;border-top:5px solid #fff;}
+
+/* 坐着：轻微晃动 */
+.agent.sit{animation:sitBob 1.9s ease-in-out infinite;}
+@keyframes sitBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-2%);}}
+/* 站立：轻微呼吸 */
+.agent.stand{animation:standBreath 2.6s ease-in-out infinite;}
+@keyframes standBreath{0%,100%{transform:translateY(0);}50%{transform:translateY(-1.2%);}}
+/* 走路：左右摆+上下颠 */
+.agent.walk{animation:walkMove .42s linear infinite;}
+@keyframes walkMove{
+  0%{transform:rotate(-4deg) translateY(0);}
+  25%{transform:rotate(0) translateY(-3%);}
+  50%{transform:rotate(4deg) translateY(0);}
+  75%{transform:rotate(0) translateY(-3%);}
+}
+.agent.inspector{z-index:8;}
+
+/* 状态条 */
+.status-bar{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.status-chip{background:#111a22;border:1px solid #222f3b;border-radius:6px;padding:6px 10px;font-size:11px;display:flex;align-items:center;gap:6px;}
+.status-chip .dot{width:8px;height:8px;border-radius:50%;}
+.status-chip .dot.on{background:#71d085;animation:pulse 2s infinite;}
+.status-chip .dot.work{background:#e6b249;animation:pulse 1s infinite;}
+.status-chip .dot.walk{background:#4a90d9;animation:pulse .6s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+
+.stats-panel{margin-top:14px;background:#111a22;border:1px solid #222f3b;border-radius:10px;padding:14px;}
+.stats-panel h4{color:#c9a96e;margin-bottom:10px;font-size:14px;}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;}
+.stat-card{background:#0d1520;border-radius:8px;padding:10px;text-align:center;}
+.stat-card .num{font-size:22px;font-weight:bold;}
+.stat-card .label{font-size:11px;color:#8a98a5;margin-top:2px;}
+.legend{margin-top:10px;font-size:12px;color:#8a98a5;line-height:1.7;}
+
+@media(max-width:768px){.agent .name{font-size:8px;}.agent .bubble{font-size:9px;max-width:85px;}}
+</style>
 </head>
 <body>
-  <header>
-    <div class="brand"><div class="mark">F<span>3</span></div><div><strong>FANTASY<span style="color:var(--gold)">3D</span> AI WORKSHOP</strong><span>七位 AI · 一个团队 · 无限可能</span></div></div>
-    <nav aria-label="主导航"><a href="store.html">商店</a><a class="active" href="office.html">办公区</a><a href="agents.html">智能体</a><a href="orders.html">订单</a><a href="about.html">关于</a></nav>
-  </header>
-  <main>
-    <section class="stage" aria-label="Fantasy3D 3D 办公区">
-      <div class="toolbar">
-        <div class="chips"><div class="chip">真实 GLB Runtime</div><div class="chip">导航与碰撞已验证</div><div class="chip">Agent Gateway / Event Bus</div></div>
-        <div class="camera-buttons" id="cameraButtons" aria-label="场景机位"></div>
-      </div>
-      <canvas id="workshop" aria-label="可拖拽浏览的 Fantasy3D AI Workshop 3D 场景"></canvas>
-      <div class="runtime-overlay" id="runtimeOverlay" data-state="loading" role="status"><b>加载 3D 场景</b><span>正在准备几何、灯光与 Agent</span></div>
-      <div class="view-label" id="viewLabel">Production</div>
-    </section>
-    <aside>
-      <section class="panel"><h2>运行状态</h2><div class="metric-grid">
-        <div class="metric"><b id="taskState">NOTICE</b><span>当前任务状态</span></div><div class="metric"><b id="progressText">0%</b><span>生产进度</span></div>
-        <div class="metric"><b id="rackCount">0</b><span>展示架新作品</span></div><div class="metric"><b id="activeTasks">0</b><span>活动任务</span></div>
-      </div></section>
-      <section class="panel"><h3>七 Agent 统一状态机</h3><div class="agents" id="agentRows"></div></section>
-      <section class="panel"><h3>任务板 / 数据屏</h3><div class="task-card">
-        <span class="badge" id="taskId">TASK-F3D-2401</span><div id="taskText">Production 收到资产任务，准备走向模型台。</div><div class="bar"><div class="fill" id="progressFill"></div></div>
-        <select id="inspectionMode" aria-label="稽查结果"><option value="PASS">PASS</option><option value="RETURN">RETURN</option></select>
-        <button id="runBtn" type="button" title="运行 Production 到 Inspector 的完整闭环">运行闭环</button>
-      </div></section>
-      <section class="panel"><h3>Agent Gateway / Event Bus</h3><div class="log" id="eventLog"></div></section>
-      <section class="panel"><h3>连接状态</h3><div class="log" id="gatewayStatus">正在连接 /api/workshop/state...</div></section>
-    </aside>
-  </main>
-  <script>
-    window.__FANTASY3D_BOOT_ERRORS__ = [];
-    function reportWorkshopBootError(message) {
-      window.__FANTASY3D_BOOT_ERRORS__.push(String(message));
-      const overlay = document.getElementById('runtimeOverlay');
-      if (!overlay) return;
-      const detail = overlay.querySelector('span');
-      const nextMessage = String(message);
-      overlay.dataset.state = 'error';
-      overlay.querySelector('b').textContent = '3D Runtime 初始化失败';
-      detail.textContent = detail.textContent && detail.textContent !== '正在准备几何、灯光与 Agent'
-        ? `${detail.textContent} | ${nextMessage}`
-        : nextMessage;
+<header class="header">
+  <a href="store.html" class="brand">
+    <span class="logo">寺</span>
+    <span><span class="brand-title">Fantasy 3D</span><br><span class="brand-sub">AI 自治资产商店</span></span>
+  </a>
+  <nav class="nav">
+    <a href="store.html">商店</a>
+    <a href="office.html" class="active">办公区</a>
+    <a href="agents.html">智能体</a>
+    <a href="orders.html">订单</a>
+    <a href="about.html">关于</a>
+  </nav>
+  <div class="clock" id="clock">--:--:--</div>
+</header>
+
+<div class="office-wrap">
+  <div class="office-title">
+    <h2>🏢 智能体办公区 · 实时监控</h2>
+    <span><button id="workflowButton" type="button">运行一轮工作流</button> <button id="meetingButton" type="button">召开运营会议</button> <span class="status" id="overallStatus">● 正在同步任务</span></span>
+  </div>
+  <div class="scene" id="scene"></div>
+  <div class="status-bar" id="statusBar"></div>
+  <div class="legend">说明：4 名内勤坐在工位（桌面遮挡腰以下），身体轻微晃动；炮头站立待命、随时外出推广；总稽查起身在工位间走动巡查；到点全体走到右侧会议室围坐开会，会后走回。</div>
+
+  <div class="stats-panel" style="margin-top:12px;">
+    <h4>🧭 工作流记录</h4>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="num" id="workflowDone">0</div><div class="label">已记录任务</div></div>
+      <div class="stat-card"><div class="num" id="workflowDrafts">0</div><div class="label">待审核推广草稿</div></div>
+      <div class="stat-card"><div class="num" id="workflowPricing">0</div><div class="label">待审核价格建议</div></div>
+      <div class="stat-card"><div class="num" id="workflowPublished">0</div><div class="label">已发布推广</div></div>
+      <div class="stat-card"><div class="num" id="workflowOrders">0</div><div class="label">真实订单</div></div>
+    </div>
+  </div>
+
+  <div class="stats-panel" style="margin-top:12px;">
+    <h4>📣 推广渠道接入</h4>
+    <div class="status-bar" id="channelBar"><span class="status-chip">正在读取渠道状态…</span></div>
+    <div class="legend">渠道需要通过各平台官方登录和验证后才会启用发布。推广员只会向已连接渠道投递对应文案，并保存发布链接。</div>
+  </div>
+
+  <div class="stats-panel">
+    <h4>📊 商店访问统计</h4>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="num" style="color:#71d085;" id="statTotal">--</div><div class="label">总访问量</div></div>
+      <div class="stat-card"><div class="num" style="color:#e6b249;" id="statToday">--</div><div class="label">今日访问</div></div>
+      <div class="stat-card"><div class="num" style="color:#4a90d9;" id="statUnique">--</div><div class="label">独立访客</div></div>
+      <div class="stat-card"><div class="num" style="color:#e67e22;" id="statProducts">--</div><div class="label">在售商品</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 角色立绘文件（在 frontend/ 下，同域 /chibi-*.png）
+const PORTRAIT = {
+  manager:'chibi-manager.png', researcher:'chibi-researcher.png',
+  recommendation:'chibi-recommendation.png', support:'chibi-support.png',
+  order:'chibi-order.png', listing:'chibi-listing.png', inspector:'chibi-inspector.png'
+};
+// pose: sit=工位半身；stand=站立全身；坐标 x,y 为“底部中心”百分比
+const AGENTS = [
+  {id:'manager',        cls:'manager',        name:'大当家', W:10,   pose:'sit',   seat:{x:17.6,y:58.6}, task:'统筹全局，制定战略'},
+  {id:'researcher',     cls:'researcher',     name:'插千的', W:8.5,  pose:'sit',   seat:{x:40.0,y:42.0}, task:'雷达扫描，采集资源'},
+  {id:'recommendation', cls:'recommendation', name:'炮头',   W:8.5,  pose:'stand', seat:{x:48.0,y:86.0}, task:'对外推广，主动获客'},
+  {id:'support',        cls:'support',        name:'水香',   W:8.5,  pose:'sit',   seat:{x:57.6,y:42.0}, task:'接待客户，解答咨询'},
+  {id:'order',          cls:'order',          name:'粮台',   W:8.5,  pose:'sit',   seat:{x:40.0,y:60.5}, task:'管理订单，智能定价'},
+  {id:'listing',        cls:'listing',        name:'翻垛的', W:8.5,  pose:'sit',   seat:{x:57.6,y:60.5}, task:'生产上架，优化描述'},
+  {id:'inspector',      cls:'inspector',      name:'总稽查', W:8.5,  pose:'walk',  seat:{x:48.0,y:55.0}, task:'全店巡查，查重整改'}
+];
+
+// 会议室圆桌 7 个座位（半身，底部贴近圆桌）
+const MEET = [
+  {x:80.5,y:45.8},{x:74.4,y:49.1},{x:71.9,y:57.1},{x:74.4,y:67.6},
+  {x:80.5,y:70.9},{x:86.6,y:67.6},{x:86.6,y:49.1}
+];
+
+const scene = document.getElementById('scene');
+const els = {};
+let mode = 'work';
+
+// 由“底部中心”和姿态算左上角
+function topLeft(a,x,y,pose){
+  const h = (pose==='sit') ? a.W*1.86 : a.W*3;
+  return { left:x - a.W/2, top:y - h };
+}
+
+function init(){
+  AGENTS.forEach(a=>{
+    const el=document.createElement('div');
+    el.className='agent '+a.cls;
+    el.id='ag-'+a.id;
+    el.style.setProperty('--w',a.W);
+    el.innerHTML=`<div class="name">${a.name}</div><div class="bubble" id="bb-${a.id}"></div><img class="portrait" src="${PORTRAIT[a.id]}" alt="${a.name}">`;
+    scene.appendChild(el);
+    els[a.id]=el;
+  });
+  toSeats();
+  updateBar();
+}
+
+function place(a,x,y,pose){
+  const el=els[a.id];
+  const p=topLeft(a,x,y,pose);
+  el.style.left=p.left+'%';
+  el.style.top=p.top+'%';
+  el.className='agent '+a.cls+' '+pose;
+}
+// 回到工位/初始姿态
+function toSeats(){
+  AGENTS.forEach(a=>place(a,a.seat.x,a.seat.y,a.pose));
+}
+function bubble(id,text){
+  const b=document.getElementById('bb-'+id);
+  b.textContent=text;b.style.display='block';
+  clearTimeout(b._t);b._t=setTimeout(()=>b.style.display='none',5000);
+}
+
+// 总稽查巡查路线（两排工位之间的走道）
+const patrolPath=[{x:33,y:52},{x:39,y:52},{x:48,y:53},{x:57,y:52},{x:63,y:52},{x:57,y:56},{x:48,y:57},{x:39,y:56}];
+let patrolIdx=0;
+function patrolStep(){
+  if(mode!=='work')return;
+  const p=patrolPath[patrolIdx%patrolPath.length];
+  place(AGENTS[6],p.x,p.y,'walk');
+  bubble('inspector',['巡查中…','检查商品','核对价格','有无重复'][patrolIdx%4]);
+  patrolIdx++;
+}
+
+// 开会：全体走到圆桌 → 坐下
+function startMeeting(){
+  mode='meeting';
+  document.getElementById('overallStatus').textContent='🤝 团队会议中';
+  AGENTS.forEach((a,i)=>{
+    const m=MEET[i];
+    setTimeout(()=>place(a,m.x,m.y,'walk'),i*220);
+    setTimeout(()=>{ place(a,m.x,m.y,'sit'); bubble(a.id,a.task); },2300+i*220);
+  });
+}
+function endMeeting(){
+  mode='work';
+  document.getElementById('overallStatus').textContent='● 办公中';
+  AGENTS.forEach((a,i)=>{
+    setTimeout(()=>place(a,a.seat.x,a.seat.y,'walk'),i*180);
+    setTimeout(()=>place(a,a.seat.x,a.seat.y,a.pose),2300+i*180);
+  });
+}
+
+// 演示循环：工作 28s（含稽查巡查）→ 开会 14s → 循环
+let cycle=0;
+function schedule(){
+  setInterval(()=>{
+    cycle++;
+    if(cycle%2===0){ startMeeting(); setTimeout(endMeeting,14000); }
+  },28000);
+  setInterval(()=>{ if(mode==='work')patrolStep(); },2400);
+  // 内勤偶尔冒气泡
+  setInterval(()=>{
+    if(mode==='work'){
+      const a=AGENTS[Math.floor(Math.random()*6)];
+      bubble(a.id,a.task);
     }
-    window.addEventListener('error', event => reportWorkshopBootError(event.message || 'Module load error'));
-    window.addEventListener('unhandledrejection', event => reportWorkshopBootError(event.reason?.message || event.reason || 'Unhandled module rejection'));
-  </script>
-  <script type="module" src="/workshop-runtime/workshop.js?v=20260923-independent-assets" onerror="reportWorkshopBootError('Unable to load workshop.js or one of its imports')"></script>
+  },4200);
+}
+
+function updateBar(){
+  const bar=document.getElementById('statusBar');
+  bar.innerHTML='';
+  AGENTS.forEach(a=>{
+    const c=document.createElement('div');
+    c.className='status-chip';
+    let cls='on',txt='办公中';
+    if(mode==='meeting'){cls='work';txt='开会中';}
+    else if(a.id==='inspector'){cls='walk';txt='巡查中';}
+    else if(a.id==='recommendation'){txt='待命中';}
+    c.innerHTML=`<span class="dot ${cls}"></span>${a.name}：${txt}`;
+    bar.appendChild(c);
+  });
+}
+
+function updateClock(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('zh-CN');}
+function fetchStats(){
+  fetch('/api/stats/visits').then(r=>r.json()).then(d=>{
+    document.getElementById('statTotal').textContent=d.total.toLocaleString();
+    document.getElementById('statToday').textContent=d.today.toLocaleString();
+    document.getElementById('statUnique').textContent=d.uniqueVisitors.toLocaleString();
+  }).catch(()=>{});
+  fetch('/api/store/products').then(r=>r.json()).then(d=>{
+    document.getElementById('statProducts').textContent=d.products.length;
+  }).catch(()=>{});
+}
+
+let lastMeetingId=null;
+async function syncOffice(){
+  try{
+    const [ag,tk,mt]=await Promise.all([fetch('/api/agents'),fetch('/api/store/tasks'),fetch('/api/store/meetings')]);
+    const agents=(await ag.json()).agents, tasks=(await tk.json()).tasks, meetings=(await mt.json());
+    (tasks.tasks||[]).forEach(t=>{
+      const a=AGENTS.find(x=>x.id===t.agentId);
+      if(a && t.title) bubble(a.id,t.title);
+    });
+    const latest=(meetings.meetings||[])[0];
+    if(latest && latest.id!==lastMeetingId && Date.now()-new Date(latest.timestamp).getTime()<45000){
+      lastMeetingId=latest.id; startMeeting(); setTimeout(endMeeting,12000);
+    }
+    const active=(agents||[]).filter(x=>x.status==='working').length;
+    if(mode==='work') document.getElementById('overallStatus').textContent=active?`● ${active} 个智能体有已记录任务`:'● 办公中';
+    updateBar();
+  }catch(_){ document.getElementById('overallStatus').textContent='○ 无法连接本地服务'; }
+}
+async function syncWorkflow(){
+  try{
+    const w=await (await fetch('/api/store/workflow')).json();
+    document.getElementById('workflowDone').textContent=w.completedTasks||0;
+    document.getElementById('workflowDrafts').textContent=w.promotionDrafts||0;
+    document.getElementById('workflowPricing').textContent=w.priceProposals||0;
+    document.getElementById('workflowPublished').textContent=w.publishedPromotions||0;
+    document.getElementById('workflowOrders').textContent=w.realOrders||0;
+  }catch(_){}
+}
+async function syncChannels(){
+  try{
+    const data=await (await fetch('/api/store/channels')).json();
+    const bar=document.getElementById('channelBar');bar.innerHTML='';
+    (data.channels||[]).forEach(ch=>{
+      const item=document.createElement('span');item.className='status-chip';
+      item.textContent=ch.name+'：'+(ch.status==='connected'?'已连接':'待连接');
+      bar.appendChild(item);
+    });
+  }catch(_){}
+}
+async function runWorkflow(){
+  const b=document.getElementById('workflowButton');b.disabled=true;
+  try{ await fetch('/api/store/workflow/run',{method:'POST'}); await syncOffice(); await syncWorkflow(); }
+  finally{ b.disabled=false; }
+}
+async function requestMeeting(){
+  const b=document.getElementById('meetingButton');b.disabled=true;
+  try{ await fetch('/api/store/meeting',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:'运营任务复盘'})}); await syncOffice(); }
+  finally{ b.disabled=false; }
+}
+
+window.addEventListener('load',()=>{
+  init();
+  updateClock();setInterval(updateClock,1000);
+  document.getElementById('meetingButton').addEventListener('click',requestMeeting);
+  document.getElementById('workflowButton').addEventListener('click',runWorkflow);
+  schedule();
+  fetchStats();setInterval(fetchStats,30000);
+  syncOffice();syncWorkflow();syncChannels();
+  setInterval(syncOffice,10000);setInterval(syncWorkflow,10000);setInterval(syncChannels,10000);
+  setInterval(updateBar,1500);
+});
+</script>
 </body>
 </html>
