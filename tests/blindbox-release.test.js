@@ -38,6 +38,12 @@ test('public gift sharing requires production, durable storage and a configured 
  assert.equal(releaseConfig({NODE_ENV:'production',BLINDBOX_PUBLIC_ORIGIN:'https://gifts.company.com'}).sharingEnabled,false);
  const config=releaseConfig({NODE_ENV:'production',BLINDBOX_PUBLIC_ORIGIN:'https://gifts.company.com',BLINDBOX_PERSISTENT_STORAGE:'true'});
  assert.equal(config.sharingEnabled,true);assert.equal(config.paymentEnabled,false);
+ const render=releaseConfig({RENDER:'true',RENDER_EXTERNAL_URL:'https://fantasy3d-assetstores.onrender.com'});
+ assert.equal(render.publicOrigin,'https://fantasy3d-assetstores.onrender.com');
+ assert.equal(render.sharingEnabled,false);
+ assert.equal(releaseConfig({RENDER_EXTERNAL_URL:'https://unexpected.com'}).publicOrigin,null);
+ assert.equal(releaseConfig({RENDER:'true',RENDER_EXTERNAL_URL:'https://fallback.com',BLINDBOX_PUBLIC_ORIGIN:'https://custom.com'}).publicOrigin,'https://custom.com');
+ assert.equal(releaseConfig({RENDER:'true',RENDER_EXTERNAL_URL:'https://fallback.com',BLINDBOX_PUBLIC_ORIGIN:'http://invalid.com'}).publicOrigin,null);
  for(const origin of ['http://store.com','https://localhost','https://127.0.0.1','https://192.168.0.2','https://user:secret@store.com','https://store.com/path','https://store.com/?a=1','https://store.local'])assert.equal(publicOrigin(origin),null);
 });
 test('production without durable storage refuses new gifts instead of creating fragile links',async()=>{
