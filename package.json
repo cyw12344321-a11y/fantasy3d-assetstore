@@ -16,9 +16,11 @@
     "dotenv": "^16.6.1",
     "express": "5.2.1",
     "fbx2gltf": "^0.9.7-p1",
-    "obj2gltf": "^3.2.0"
+    "obj2gltf": "^3.2.0",
+    "pg": "^8.23.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "electron": "44.3.0",
     "electron-builder": "26.15.3"
   },

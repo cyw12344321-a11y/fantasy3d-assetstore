@@ -22,6 +22,11 @@ test('personalized gift receipts are private, idempotent, revocable and persiste
   const a=giftStory({name:'a',occasion:'sorry',relationship:'colleague'},{pool:'prank'}).join('');assert.match(a,/对不起/);assert.doesNotMatch(a,/诅咒/);
   const english=await post('/api/blindbox/draw',{name:'Anna',sender:'Sam',pool:'bless',locale:'en',occasion:'birthday',note:'You make ordinary days special.'});assert.equal(english.status,200);assert.match(english.data.story[0],/Sam/);assert.equal(english.data.story[3],'You make ordinary days special.');
   const publicEnglish=await(await fetch(base+'/api/blindbox/reveal/'+english.data.token)).json();assert.equal(publicEnglish.locale,'en');assert.deepEqual(publicEnglish.story,english.data.story);
+  const traditional=await post('/api/blindbox/draw',{name:'小明',sender:'小芳',pool:'bless',locale:'zh-Hant',occasion:'birthday',note:'生日快乐，原文不转换。'});
+  assert.equal(traditional.status,200);assert.match(traditional.data.story[0],/託我/);assert.match(traditional.data.story[1],/蠟燭/);
+  assert.equal(traditional.data.story[3],'生日快乐，原文不转换。');
+  const publicTraditional=await(await fetch(base+'/api/blindbox/reveal/'+traditional.data.token)).json();
+  assert.equal(publicTraditional.locale,'zh-Hant');assert.deepEqual(publicTraditional.story,traditional.data.story);
   for(const bad of [{locale:'unsupported'},{note:'x'.repeat(61)},{note:'<script>'},{note:123}])assert.throws(()=>giftDetails(bad));
   assert.equal(giftDetails({}).locale,'zh');
  }finally{await new Promise(r=>server.close(r));fs.rmSync(dir,{recursive:true,force:true});}

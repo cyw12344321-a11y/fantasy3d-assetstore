@@ -7,8 +7,12 @@ test('language policy normalizes regions, preserves explicit choices and exposes
  assert.equal(resolveLanguage({requested:'en',saved:'zh',browser:['zh-CN']}).locale,'en');
  assert.equal(resolveLanguage({requested:'it-IT',saved:'zh'}).locale,'en');
  assert.equal(resolveLanguage({requested:'it-IT'}).fallback,true);
- assert.equal(resolveLanguage({requested:'zh-TW'}).locale,'en');
- assert.equal(resolveLanguage({requested:'zh-TW'}).fallback,true);
+ for(const code of ['zh-TW','zh-HK','zh-MO','zh-Hant','zh-Hant-TW']){
+  assert.equal(resolveLanguage({requested:code}).locale,'zh-Hant');
+  assert.equal(resolveLanguage({requested:code}).fallback,false);
+ }
+ assert.equal(resolveLanguage({requested:'zh-Hans-HK'}).locale,'zh');
+ assert.equal(resolveLanguage({requested:'zh-TW',available:['en','zh']}).locale,'en');
  assert.equal(resolveLanguage({requested:'ar',available:['en','ar']}).direction,'rtl');
  assert.equal(resolveLanguage({requested:'ar'}).direction,'ltr');
  for(const code of ['ar-EG','he','fa','ur'])assert.equal(languageDirection(code),'rtl');

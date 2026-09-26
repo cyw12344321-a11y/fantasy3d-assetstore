@@ -1,6 +1,7 @@
 export const nativeLanguages = Object.freeze([
   { code: 'en', label: 'English', direction: 'ltr' },
   { code: 'zh', label: '简体中文', direction: 'ltr' },
+  { code: 'zh-Hant', label: '繁體中文', direction: 'ltr' },
   { code: 'es', label: 'Español', direction: 'ltr' },
   { code: 'fr', label: 'Français', direction: 'ltr' },
   { code: 'de', label: 'Deutsch', direction: 'ltr' },
@@ -29,6 +30,7 @@ export function resolveLanguage({ requested, saved, browser = [], available = na
     const parsed = new Intl.Locale(candidate);
     // Do not present Simplified Chinese as a Traditional Chinese translation.
     const traditional = parsed.language === 'zh' && (parsed.script === 'Hant' || (!parsed.script && ['TW', 'HK', 'MO'].includes(parsed.region)));
+    if (traditional && supported.includes('zh-Hant')) return { requested: wanted, locale: 'zh-Hant', fallback: candidate !== wanted, direction: 'ltr' };
     if (!traditional && supported.includes(parsed.language)) return { requested: wanted, locale: parsed.language, fallback: candidate !== wanted, direction: languageDirection(parsed.language) };
     // An explicit URL or saved preference wins; unsupported locales get an honest English fallback.
     if (candidate === normalizeLanguage(requested) || candidate === normalizeLanguage(saved)) break;
