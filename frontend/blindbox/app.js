@@ -1,5 +1,5 @@
 import * as T from '/workshop-runtime/vendor/three.module.js';
-import { characterModel, giftModel } from './models.js';
+import { giftModel } from './models.js';
 import { setupAccount } from './account.js';
 import { recordStage, supportedRecordingType } from './recording.js';
 import { setupGifting } from './gifting.js';
@@ -10,7 +10,7 @@ const $ = id => document.getElementById(id);
 if(location.pathname.startsWith('/r/'))document.body.classList.add('receiving');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clock = new T.Clock(), portraits = new Map();
-let renderer, scene, camera, character, gift, mixer, accounts;
+let renderer, scene, camera, gift, accounts;
 let catalog = [], result = null, user = null, guest = {}, busy = false;
 let openedAt = 0, sound = false, rotation = 0, dragX = null, revealing = false;
 let recording = null, downloadUrl = null;
@@ -28,14 +28,9 @@ function dispose(group) {
 }
 function setCharacter(c) {
   artCard?.set(c.id);
-  $('motion').disabled=Boolean(artAssets[c.id]);
   storyPlaying = false;
   revealing = false;
-  if (character) { mixer?.stopAllAction(); mixer?.uncacheRoot(character); scene.remove(character); dispose(character); }
-  character = characterModel(c); character.position.y = .16; scene.add(character);
-  mixer = new T.AnimationMixer(character);
-  mixer.clipAction(character.animations.find(a => a.name === (reduced ? 'Idle' : $('motion').value))).play();
-  mixer.update(0);
+  gift.visible = false;
 }
 function setup() {
   renderer = new T.WebGLRenderer({ canvas: $('scene'), antialias: true, preserveDrawingBuffer: true });
@@ -55,17 +50,14 @@ function setup() {
   new ResizeObserver(resize).observe($('stage'));resize();
   artCard=setupArtCard($('stage'));
   artCard.set(location.pathname.startsWith('/r/')?false:'imp');
-  $('motion').disabled=!location.pathname.startsWith('/r/');
   $('scene').addEventListener('pointerdown',e=>{if(!recording)dragX=e.clientX;});
   window.addEventListener('pointerup',()=>dragX=null);
   $('scene').addEventListener('pointermove',e=>{if(dragX!==null){rotation+=(e.clientX-dragX)*.012;dragX=e.clientX;}});
   renderer.setAnimationLoop(()=>{
     const delta=Math.min(clock.getDelta(),.05),t=clock.elapsedTime,elapsed=t-openedAt;
     gift.rotation.y=rotation+Math.sin(t*.5)*.08;gift.rotation.z=busy&&!reduced?Math.sin(t*30)*.07:0;
-    if(character){if(!reduced)mixer.update(delta);const active=!result||elapsed<15;character.rotation.y=rotation+(active?Math.sin(t)*.12:0);character.position.y=.16+(reduced||!active?0:Math.abs(Math.sin(elapsed*3))*.12);}
-    if(result&&storyPlaying){const phase=Math.min(4,Math.floor(elapsed/3.75));$('story-progress').value=Math.min(15,elapsed);if(phase!==storyPhase){storyPhase=phase;const lines=result.story||[lineFor(result)];$('line').textContent=lines[Math.min(phase,lines.length-1)];const motion=phase===4?'Idle':phase===0||phase===3?'Wave':'Dance';for(const clip of character.animations)mixer.clipAction(clip).fadeOut(.3);mixer.clipAction(character.animations.find(c=>c.name===motion)).reset().fadeIn(.3).play();if(phase<4)speak();}}
+    if(result&&storyPlaying){const phase=Math.min(4,Math.floor(elapsed/3.75));$('story-progress').value=Math.min(15,elapsed);if(phase!==storyPhase){storyPhase=phase;const lines=result.story||[lineFor(result)];$('line').textContent=lines[Math.min(phase,lines.length-1)];if(phase<4)speak();}}
     if(busy){revealing=false;gift.scale.setScalar(1);gift.userData.lid.position.y=1.36;gift.userData.lid.rotation.z=0;}
-    if(revealing){const p=Math.min(1,elapsed/1.2);gift.userData.lid.position.y=1.36+p*2;gift.userData.lid.rotation.z=p*.9;gift.scale.setScalar(Math.max(.001,1-p));character.scale.setScalar(Math.max(.001,p));character.position.y=.16+Math.sin(p*Math.PI)*1.1;if(p===1){revealing=false;gift.visible=false;character.scale.setScalar(1);}}
     renderer.render(scene,camera);artCard.frame();window.__blindboxReady=true;
   });
   $('scene').addEventListener('webglcontextlost',e=>{e.preventDefault();recording?.abort();$('status').textContent=tr('三维显示已中断，请刷新页面重试。');$('draw').disabled=true;});
@@ -74,7 +66,7 @@ function lineFor(r){return r.story?.[0]||(r.character.pool==='bless'?`${r.name}�
 function speak(){if(!sound||!result||!('speechSynthesis'in window))return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance($('line').textContent||lineFor(result));u.lang=(result.locale||locale)==='zh'?'zh-CN':(result.locale||locale);u.rate=1.06;speechSynthesis.speak(u);}
 function clearDownload(){if(downloadUrl)URL.revokeObjectURL(downloadUrl);downloadUrl=null;$('video-download').hidden=true;$('video-download').removeAttribute('href');$('record-status').textContent='';}
 function show(r,save=false){
-  result=r;clearDownload();setCharacter(r.character);gift.visible=!reduced;revealing=!reduced;
+  result=r;clearDownload();setCharacter(r.character);artCard.play();
   storyPlaying=true;storyPhase=-1;$('story-progress').value=0;
   gift.scale.setScalar(1);gift.userData.lid.position.y=1.36;gift.userData.lid.rotation.z=0;openedAt=clock.elapsedTime;
   $('result').hidden=false;$('rarity').textContent=tr(r.character.rarity)+' / '+(r.character.pool==='bless'?choose('祝福','Kind'):choose('整蛊','Playful'));
@@ -90,13 +82,7 @@ function show(r,save=false){
 }
 async function api(url,options){const response=await fetch(url,{...options,signal:AbortSignal.timeout(15000)});const data=await response.json();if(!response.ok)throw Error(tr(data.error)||choose('服务暂不可用','The service is temporarily unavailable.'));return data;}
 function portrait(c){
-  if(artAssets[c.id])return artAssets[c.id].thumb;
-  const s=new T.Scene();s.background=new T.Color('#e9eeea');s.add(new T.HemisphereLight(0xffffff,0x819287,3));
-  const l=new T.DirectionalLight(0xffffff,3);l.position.set(2,4,5);s.add(l);
-  const m=characterModel(c);m.rotation.y=.18;s.add(m);
-  const cam=new T.PerspectiveCamera(35,1,.1,30);cam.position.set(0,1.6,6);cam.lookAt(0,1.3,0);
-  const size=renderer.getSize(new T.Vector2()),ratio=renderer.getPixelRatio();renderer.setPixelRatio(1);renderer.setSize(180,180,false);
-  renderer.render(s,cam);const url=renderer.domElement.toDataURL('image/png');renderer.setPixelRatio(ratio);renderer.setSize(size.x,size.y,false);dispose(m);return url;
+  return artAssets[c.id]?.thumb || '';
 }
 function renderCards(){
   if(!renderer||!catalog.length||document.body.classList.contains('receiving'))return;
@@ -113,12 +99,12 @@ function renderCards(){
     b.onclick=()=>{if(busy||recording)return;setCharacter(c);gift.visible=false;result=null;$('result').hidden=true;$('status').textContent=characterName(c)+choose(' · 图鉴预览',' · Collection preview');$('stage').scrollIntoView({behavior:reduced?'instant':'smooth',block:'center'});};$('cards').append(b);
   }
 }
-function lock(locked){for(const id of ['draw','account-button','replay','again','share','record','video-layout','motion'])$(id).disabled=locked;$('motion').disabled=locked||$('stage').classList.contains('art-active');}
+function lock(locked){for(const id of ['draw','account-button','replay','again','share','record','video-layout','art-animation'])$(id).disabled=locked;}
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 $('draw-form').onsubmit=async e=>{
   e.preventDefault();if(busy||recording||!renderer)return;busy=true;lock(true);$('result').hidden=true;result=null;
   artCard.set(false);
-  if(character)character.visible=false;gift.visible=true;$('status').textContent=tr('惊喜正在路上…');
+  gift.visible=true;$('status').textContent=tr('惊喜正在路上…');
   try{
     const request=api('/api/blindbox/draw',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('recipient').value,pool:new FormData(e.target).get('pool'),...gifting.details()})});request.catch(()=>{});
     for(let i=3;i>0;i--){$('countdown').textContent=String(i);await wait(reduced?150:850);}
@@ -127,8 +113,7 @@ $('draw-form').onsubmit=async e=>{
   finally{busy=false;lock(false);if(!supportedRecordingType())$('record').disabled=true;}
 };
 $('sound').onclick=()=>{sound=!sound;$('sound').setAttribute('aria-pressed',String(sound));$('sound').title=sound?tr('关闭声音'):tr('开启声音');$('sound').setAttribute('aria-label',$('sound').title);$('sound').textContent=sound?'♫':'♪';if(sound)speak();else if('speechSynthesis'in window)speechSynthesis.cancel();};
-$('replay').onclick=()=>{openedAt=clock.elapsedTime;storyPhase=-1;storyPlaying=true;mixer?.setTime(0);};
-$('motion').onchange=()=>{if(!character)return;storyPlaying=false;for(const clip of character.animations)mixer.clipAction(clip).fadeOut(.25);mixer.clipAction(character.animations.find(c=>c.name===$('motion').value)).reset().fadeIn(.25).play();};
+$('replay').onclick=()=>{openedAt=clock.elapsedTime;storyPhase=-1;storyPlaying=true;artCard.play();};
 $('art-animation').onchange=()=>{setArtAnimation($('art-animation').checked);$('art-card').style.transform='';};
 $('again').onclick=()=>{if(gifting.returnGift()){result=null;storyPlaying=false;renderCards();}$('recipient').focus();$('status').textContent=tr('换个名字，再送一份惊喜。');};
 $('share').onclick=async()=>{

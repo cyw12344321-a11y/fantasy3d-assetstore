@@ -1,4 +1,3 @@
-import * as T from '/workshop-runtime/vendor/three.module.js';
 import { drawArt, artAssets, ensureArt } from './art-card.js';
 import {choose,tr,characterName} from './i18n.js';
 
@@ -13,11 +12,7 @@ export async function recordStage({ scene, camera, result, signal, onProgress, p
   if(artAssets[result.character.id]){try{await ensureArt(result.character.id);}catch{throw Error(tr('角色原画未能加载，请检查网络后重试。'));}}
   if(signal?.aborted)throw Error(tr('录屏已取消。'));
   const width = portrait ? 1080 : 1920, height = portrait ? 1920 : 1080;
-  const renderer = new T.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-  renderer.setSize(width, height); renderer.setPixelRatio(1);
-  renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=.85;
-  renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
-  const cam = camera.clone();cam.aspect=width/height;cam.position.set(portrait?3:3.8,3,portrait?9.5:6.7);cam.lookAt(0,1.2,0);cam.updateProjectionMatrix();
+  if(!artAssets[result.character.id])throw Error(tr('角色原画未能加载，请检查网络后重试。'));
   const canvas = document.createElement('canvas');canvas.width=width;canvas.height=height;
   const ctx=canvas.getContext('2d');const stream=canvas.captureStream(30);
   const chunks=[];let timer,frame,audio,recorder,settled=false;
@@ -30,9 +25,8 @@ export async function recordStage({ scene, camera, result, signal, onProgress, p
     recorder=new MediaRecorder(stream,{mimeType,videoBitsPerSecond:8000000,audioBitsPerSecond:128000});
     const started=performance.now();
     function draw(){
-      renderer.render(scene,cam);ctx.drawImage(renderer.domElement,0,0);
       const art=artAssets[result.character.id];
-      const isArt=art&&drawArt(ctx,width,height-300,(performance.now()-started)/1000,matchMedia('(prefers-reduced-motion: reduce)').matches,result.character.id);
+      const isArt=drawArt(ctx,width,height-300,(performance.now()-started)/1000,matchMedia('(prefers-reduced-motion: reduce)').matches,result.character.id,true);
       if(isArt){ctx.fillStyle=art.background;ctx.fillRect(0,height-300,width,300);}
       ctx.fillStyle=isArt?art.ink:'#244e3c';ctx.font='bold 32px sans-serif';ctx.textAlign='left';ctx.fillText('FANTASY3D / SURPRISE CLUB',64,90);ctx.textAlign='center';ctx.font='bold 52px sans-serif';ctx.fillText(characterName(result.character),width/2,height-235);ctx.font='32px sans-serif';
       const elapsed=performance.now()-started;
@@ -54,5 +48,5 @@ export async function recordStage({ scene, camera, result, signal, onProgress, p
     const blob=new Blob(chunks,{type:recorder.mimeType || mimeType});
     if(blob.size<1000)throw Error(tr('视频未能生成，请重试。'));
     return {blob,extension:blob.type.includes('mp4')?'mp4':'webm',width,height};
-  } finally {clearTimeout(timer);cancelAnimationFrame(frame);if(recorder&&recorder.state!=='inactive')recorder.stop();stream.getTracks().forEach(t=>t.stop());await audio?.close().catch(()=>{});renderer.dispose();renderer.forceContextLoss();}
+  } finally {clearTimeout(timer);cancelAnimationFrame(frame);if(recorder&&recorder.state!=='inactive')recorder.stop();stream.getTracks().forEach(t=>t.stop());await audio?.close().catch(()=>{});}
 }
